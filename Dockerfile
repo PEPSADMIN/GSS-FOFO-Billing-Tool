@@ -16,15 +16,13 @@ COPY backend/prisma ./backend/prisma/
 COPY backend/tsconfig.json ./backend/
 
 # Install all workspace dependencies from repo root
-# (npm workspaces creates symlink: node_modules/@gss/shared -> ../shared)
 RUN npm install
+
+# Patch schema provider from sqlite (local dev default) to postgresql for production
+RUN sed -i 's/provider = "sqlite"/provider = "postgresql"/' /repo/backend/prisma/schema.prisma
 
 # Copy backend source
 COPY backend/src ./backend/src/
-
-# Set provider for prisma generate (postgresql = production default)
-ARG DATABASE_PROVIDER=postgresql
-ENV DATABASE_PROVIDER=${DATABASE_PROVIDER}
 
 WORKDIR /repo/backend
 

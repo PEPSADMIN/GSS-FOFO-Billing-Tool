@@ -1,6 +1,5 @@
 import "dotenv/config";
 import express from "express";
-import cors from "cors";
 import { authRouter } from "./routes/auth";
 import { customersRouter } from "./routes/customers";
 import { itemsRouter } from "./routes/items";
@@ -18,8 +17,17 @@ import { announcementsRouter } from "./routes/announcements";
 import { errorHandler } from "./middleware/errorHandler";
 
 export const app = express();
-app.use(cors({ origin: "*", methods: ["GET","HEAD","PUT","PATCH","POST","DELETE","OPTIONS"], allowedHeaders: ["Content-Type","Authorization"] }));
-app.options("*", cors({ origin: "*", allowedHeaders: ["Content-Type","Authorization"] }));
+
+// Manual CORS – runs before everything; ends OPTIONS preflight immediately
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  res.setHeader("Access-Control-Max-Age", "86400");
+  if (req.method === "OPTIONS") return res.status(204).end();
+  next();
+});
+
 app.use(express.json());
 
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));

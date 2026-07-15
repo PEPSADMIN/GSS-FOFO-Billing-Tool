@@ -1,0 +1,358 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite has no native enum support in Prisma; these are enforced as string unions in application code (zod).
+// Role: "OWNER" | "ADMIN" | "CASHIER" (legacy fixed roles; superseded per-user by an optional custom Role record)
+// PaymentMode: "CASH" | "UPI" | "CARD" | "CREDIT"
+// InvoiceStatus: "PAID" | "PARTIAL" | "UNPAID"
+// StockMovementType: "PURCHASE_IN" | "SALE_OUT" | "ADJUSTMENT_IN" | "ADJUSTMENT_OUT" | "RETURN_IN" | "OPENING_STOCK" | "DAMAGE_OUT" | "SAMPLE_OUT"
+// Dispatch.status: "PENDING" | "DISPATCHED" | "DELIVERED"
+// AuditLog.action: "CREATE" | "UPDATE" | "DELETE" | "BULK_DELETE" | "RESTORE"
+// AuditLog.entityType: "Customer" | "Item" | "Invoice" | "Announcement"
+// Announcement.category: "PRICE_CHANGE" | "DISCOUNT" | "MRP_CHANGE" | "GENERAL"
+// Tab keys (Role.tabs is a comma-separated subset of): "home" | "billing" | "invoices" | "customers" | "items" | "reports" | "admin" | "dashboard"
+
+model Outlet {
+  id           String   @id @default(cuid())
+  name         String
+  gstin        String   @unique
+  stateCode    String
+  panCode      String?
+  cinNo        String?
+  addressLine  String
+  regnAddress  String?
+  city         String
+  pincode      String
+  phone        String?
+  bankName     String?
+  bankAccountNo String?
+  bankIfscCode  String?
+  createdAt    DateTime @default(now())
+
+  users           User[]
+  roles           Role[]
+  customers       Customer[]
+  items           Item[]
+  invoices        Invoice[]
+  stockMovements  StockMovement[]
+  invoiceCounters InvoiceCounter[]
+  customerItems   CustomerItem[]
+  installments    Installment[]
+  dispatches      Dispatch[]
+  customerAddresses CustomerAddress[]
+  announcements   Announcement[]
+}
+
+model Role {
+  id        String   @id @default(cuid())
+  outletId  String
+  outlet    Outlet   @relation(fields: [outletId], references: [id])
+  name      String
+  tabs      String
+  createdAt DateTime @default(now())
+
+  users User[]
+
+  @@unique([outletId, name])
+}
+
+model User {
+  id           String   @id @default(cuid())
+  outletId     String
+  outlet       Outlet   @relation(fields: [outletId], references: [id])
+  name         String
+  phone        String   @unique
+  passwordHash String
+  role         String   @default("CASHIER")
+  customRoleId String?
+  customRole   Role?    @relation(fields: [customRoleId], references: [id])
+  active       Boolean  @default(true)
+  languageCode    String   @default("en")
+  themeId         String   @default("royal-gold")
+  fontScale       Float    @default(1.0)
+  customBackground String?
+  customTextColor  String?
+  createdAt    DateTime @default(now())
+
+  invoicesCreated Invoice[] @relation("CreatedByUser")
+}
+
+model Customer {
+  id                String   @id @default(cuid())
+  outletId          String
+  outlet            Outlet   @relation(fields: [outletId], references: [id])
+  customerCode      String
+  name              String
+  phone             String?
+  alternateMobile   String?
+  email             String?
+  company           String?
+  addressLine1      String?
+  addressLine2      String?
+  addressLine3      String?
+  city              String?
+  district          String?
+  state             String?
+  pincode           String?
+  stateCode         String?
+  panCode           String?
+  gstin             String?
+  creditLimit       Int?
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  invoices      Invoice[]
+  customerItems CustomerItem[]
+  addresses     CustomerAddress[]
+
+  @@unique([outletId, customerCode])
+  @@index([outletId, phone])
+  @@index([outletId, name])
+}
+
+// Extra addresses beyond the customer's primary one (already on Customer.addressLine1 etc, which
+// is always the default Bill To / Ship To). These let an invoice's Bill To be pointed at a
+// different branch/office than where goods are actually delivered.
+model CustomerAddress {
+  id           String   @id @default(cuid())
+  outletId     String
+  outlet       Outlet   @relation(fields: [outletId], references: [id])
+  customerId   String
+  customer     Customer @relation(fields: [customerId], references: [id])
+  label        String
+  addressLine1 String
+  addressLine2 String?
+  addressLine3 String?
+  city         String?
+  district     String?
+  state        String?
+  pincode      String?
+  stateCode    String?
+  gstin        String?
+  createdAt    DateTime @default(now())
+
+  @@index([outletId, customerId])
+}
+
+model Item {
+  id                String   @id @default(cuid())
+  outletId          String
+  outlet            Outlet   @relation(fields: [outletId], references: [id])
+  name              String
+  hsnCode           String
+  unit              String
+  gstRate           Float
+  price             Int
+  currentStock      Int      @default(0)
+  lowStockThreshold Int      @default(5)
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  lineItems      InvoiceLineItem[]
+  stockMovements StockMovement[]
+  customerItems  CustomerItem[]
+
+  @@index([outletId, name])
+}
+
+model CustomerItem {
+  id          String   @id @default(cuid())
+  outletId    String
+  outlet      Outlet   @relation(fields: [outletId], references: [id])
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+  itemId      String
+  item        Item     @relation(fields: [itemId], references: [id])
+  customPrice Int?
+  isFavorite  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@unique([customerId, itemId])
+  @@index([outletId, customerId])
+}
+
+model StockMovement {
+  id                 String            @id @default(cuid())
+  outletId           String
+  outlet             Outlet            @relation(fields: [outletId], references: [id])
+  itemId             String
+  item               Item              @relation(fields: [itemId], references: [id])
+  type               String
+  quantity           Int
+  resultingStock     Int
+  referenceInvoiceId String?
+  note               String?
+  createdAt          DateTime          @default(now())
+
+  @@index([outletId, itemId, createdAt])
+}
+
+model InvoiceCounter {
+  id            String @id @default(cuid())
+  outletId      String
+  outlet        Outlet @relation(fields: [outletId], references: [id])
+  financialYear String
+  lastNumber    Int    @default(0)
+
+  @@unique([outletId, financialYear])
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  outletId        String
+  outlet          Outlet        @relation(fields: [outletId], references: [id])
+  invoiceNumber   String
+  sequenceNo      Int
+  financialYear   String
+  customerId      String?
+  customer        Customer?     @relation(fields: [customerId], references: [id])
+  createdByUserId String
+  createdByUser   User          @relation("CreatedByUser", fields: [createdByUserId], references: [id])
+
+  isInterState Boolean
+  taxableValue Int
+  cgstAmount   Int           @default(0)
+  sgstAmount   Int           @default(0)
+  igstAmount   Int           @default(0)
+  roundOff     Int           @default(0)
+  grandTotal   Int
+
+  status     String @default("UNPAID")
+  amountPaid Int    @default(0)
+
+  // Frozen text snapshots of whichever address was used at the time of sale — Bill To defaults to
+  // the customer's primary address but can be pointed at a different CustomerAddress; Ship To
+  // (Consignee) always defaults to the customer's primary address. Null means "use the customer's
+  // current primary address" (covers invoices created before this feature existed).
+  billToAddressId  String?
+  billToSnapshot   String?
+  shipToAddressId  String?
+  shipToSnapshot   String?
+
+  ewayBillNo      String?
+  cinNumber       String?
+  acknowledgeNo   String?
+  transportMode   String?
+  transporterName String?
+  vehicleRegNo    String?
+  driverContactNo String?
+  poNo            String?
+  lrNo            String?
+  lrDate          String?
+
+  createdAt DateTime @default(now())
+
+  lineItems    InvoiceLineItem[]
+  payments     Payment[]
+  installments Installment[]
+  dispatch     Dispatch?
+
+  @@unique([outletId, financialYear, sequenceNo])
+  @@index([outletId, createdAt])
+}
+
+model Installment {
+  id        String    @id @default(cuid())
+  invoiceId String
+  invoice   Invoice   @relation(fields: [invoiceId], references: [id])
+  outletId  String
+  outlet    Outlet    @relation(fields: [outletId], references: [id])
+  amount    Int
+  dueDate   DateTime
+  paidAt    DateTime?
+  paymentId String?
+  // Denormalized across every installment in the same plan — the surcharge (interest + a flat
+  // document/processing fee) is already baked into each row's `amount`; these are kept only so the
+  // breakdown can still be shown/audited later.
+  interestRate    Float?
+  documentCharges Int?
+  createdAt DateTime  @default(now())
+
+  @@index([outletId, dueDate])
+  @@index([invoiceId])
+}
+
+model InvoiceLineItem {
+  id           String  @id @default(cuid())
+  invoiceId    String
+  invoice      Invoice @relation(fields: [invoiceId], references: [id])
+  itemId       String
+  item         Item    @relation(fields: [itemId], references: [id])
+  itemName     String
+  hsnCode      String
+  unit         String
+  quantity     Int
+  unitPrice    Int
+  gstRate      Float
+  taxableValue Int
+  cgstAmount   Int     @default(0)
+  sgstAmount   Int     @default(0)
+  igstAmount   Int     @default(0)
+  lineTotal    Int
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  mode      String
+  amount    Int
+  isInitial Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Dispatch {
+  id            String    @id @default(cuid())
+  outletId      String
+  outlet        Outlet    @relation(fields: [outletId], references: [id])
+  invoiceId     String    @unique
+  invoice       Invoice   @relation(fields: [invoiceId], references: [id])
+  vehicleNo     String?
+  lrNo          String?
+  driverName    String?
+  driverPhone   String?
+  status        String    @default("PENDING")
+  dispatchedAt  DateTime?
+  podReceivedAt DateTime?
+  podNote       String?
+  createdAt     DateTime  @default(now())
+
+  @@index([outletId, status])
+}
+
+// No FK relations on purpose — audit history must survive even if the user or entity it
+// references is later deleted, and it should never be affected by cascading deletes.
+model AuditLog {
+  id         String   @id @default(cuid())
+  outletId   String
+  userId     String
+  userName   String
+  action     String
+  entityType String
+  entityId   String
+  summary    String
+  createdAt  DateTime @default(now())
+
+  @@index([outletId, createdAt])
+  @@index([outletId, entityType, entityId])
+}
+
+model Announcement {
+  id         String   @id @default(cuid())
+  outletId   String
+  outlet     Outlet   @relation(fields: [outletId], references: [id])
+  authorId   String
+  authorName String
+  category   String   @default("GENERAL")
+  title      String
+  message    String
+  createdAt  DateTime @default(now())
+
+  @@index([outletId, createdAt])
+}

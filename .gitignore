@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+.expo/
+*.db
+*.db-journal
+.env
+.env.local
+ios/
+android/
+.DS_Store
+npm-debug.log*
+
+# IDE / Claude Code settings
+.claude/

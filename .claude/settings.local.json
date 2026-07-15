@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -rf /tmp/expo-web-test)",
+      "Bash(cd \"/d/Hari JR. DATA/Development/Billing/mobile/android\")",
+      "Bash(export JAVA_HOME=\"C:\\\\Program Files\\\\Eclipse Adoptium\\\\jdk-17.0.19.10-hotspot\")",
+      "Bash(export ANDROID_HOME=\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\")",
+      "Bash(./gradlew.bat assembleDebug)",
+      "Bash(curl -s -o cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-win-13114758_latest.zip -w \"HTTP %{http_code}, size %{size_download}\\\\n\")",
+      "Bash(wmic OS get FreePhysicalMemory,TotalVisibleMemorySize)",
+      "PowerShell(Get-CimInstance Win32_OperatingSystem)",
+      "PowerShell(Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 8 Name,Id,@{N='MB';E={[math]::Round\\($_.WorkingSet/1MB\\)}})",
+      "PowerShell(Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 6 Name,@{N='MB';E={[math]::Round\\($_.WorkingSet/1MB\\)}})",
+      "Read(//d//**)",
+      "PowerShell(Stop-Process -Id 12824,23288 -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Process java -ErrorAction SilentlyContinue)",
+      "Bash(cmd //c \"rmdir D:\\\\\\\\b\")",
+      "Bash(grep -i \"^.*b$\")",
+      "Bash(ls -la /d/ 2>&1)",
+      "Bash(mv \"Hari JR. DATA/Development/Billing\" \"Billing_NEW_TEMP\")",
+      "PowerShell(Get-Process | Where-Object { $_.Name -match \"Code|node|java|explorer\" } | Select-Object Id,Name | Sort-Object Name)",
+      "Bash(mkdir -p /d/Billing)",
+      "Bash(robocopy \"D:\\\\Hari JR. DATA\\\\Development\\\\Billing\" \"D:\\\\Billing\" /E /XD node_modules .git .expo android .cxx build /XF *.log)",
+      "Bash(curl -s http://192.168.137.1:4000/api/health -w \"\\\\nstatus:%{http_code}\\\\n\" --max-time 5)",
+      "Bash(echo \"--- before ---\" *)"
+    ],
+    "additionalDirectories": [
+      "\\tmp",
+      "D:\\Billing\\mobile\\android",
+      "D:\\Billing\\mobile"
+    ]
+  }
+}

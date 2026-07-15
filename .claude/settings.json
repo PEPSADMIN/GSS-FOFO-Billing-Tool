@@ -52,7 +52,10 @@
       "Bash(python -c \"import docx; print\\('python-docx available'\\)\")",
       "Bash(python \"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Hari-JR--DATA-Development-Billing\\\\0c38ddd8-f6e4-4bcd-955b-05ca4b4c75dc\\\\scratchpad\\\\make_doc.py\")",
       "Skill(artifact-design)",
-      "Skill(artifact-design:*)"
+      "Skill(artifact-design:*)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   }
 }

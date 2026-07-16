@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -284,6 +285,38 @@ export async function migrate(): Promise<void> {
   for (const sql of statements) {
     await prisma.$executeRawUnsafe(sql);
   }
+
+  const outletCount = await prisma.outlet.count();
+  if (outletCount === 0) {
+    console.log("[migrate] Fresh database — seeding initial data...");
+    const outlet = await prisma.outlet.upsert({
+      where: { gstin: "27ABCDE1234F1Z5" },
+      update: {},
+      create: {
+        name: "Sharma General Store",
+        gstin: "27ABCDE1234F1Z5",
+        stateCode: "27",
+        addressLine: "Shop No. 4, MG Road",
+        city: "Mumbai",
+        pincode: "400001",
+        phone: "9876543210",
+      },
+    });
+    const passwordHash = await bcrypt.hash("password123", 10);
+    await prisma.user.upsert({
+      where: { phone: "9999999999" },
+      update: {},
+      create: {
+        outletId: outlet.id,
+        name: "Owner",
+        phone: "9999999999",
+        passwordHash,
+        role: "OWNER",
+      },
+    });
+    console.log(`[migrate] Seeded outlet "${outlet.name}" — login 9999999999 / password123`);
+  }
+
   await prisma.$disconnect();
   console.log("[migrate] Schema ready.");
 }

@@ -317,6 +317,25 @@ export async function migrate(): Promise<void> {
     console.log(`[migrate] Seeded outlet "${outlet.name}" — login 9999999999 / password123`);
   }
 
+  // Always ensure demo accounts exist (idempotent upsert)
+  const firstOutlet = await prisma.outlet.findFirst();
+  if (firstOutlet) {
+    const demoUsers = [
+      { phone: "1111111111", name: "Admin User",   role: "ADMIN",   password: "Admin@123" },
+      { phone: "2222222222", name: "Cashier User", role: "CASHIER", password: "User@123"  },
+    ];
+    for (const u of demoUsers) {
+      const exists = await prisma.user.findUnique({ where: { phone: u.phone } });
+      if (!exists) {
+        const hash = await bcrypt.hash(u.password, 10);
+        await prisma.user.create({
+          data: { outletId: firstOutlet.id, name: u.name, phone: u.phone, passwordHash: hash, role: u.role },
+        });
+        console.log(`[migrate] Created ${u.role} — ${u.phone} / ${u.password}`);
+      }
+    }
+  }
+
   await prisma.$disconnect();
   console.log("[migrate] Schema ready.");
 }

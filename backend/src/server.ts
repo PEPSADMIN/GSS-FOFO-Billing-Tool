@@ -1,7 +1,9 @@
 import { migrate } from "./dbMigrate";
 import { app } from "./app";
 
-const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
+// Railway routes HTTP traffic to the EXPOSE port in the Dockerfile (4000).
+// Ignore the PORT env var Railway injects (8080) to avoid the mismatch.
+const PORT = 4000;
 
 migrate()
   .then(() => {

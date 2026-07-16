@@ -321,8 +321,8 @@ export async function migrate(): Promise<void> {
   const firstOutlet = await prisma.outlet.findFirst();
   if (firstOutlet) {
     const demoUsers = [
-      { phone: "1111111111", name: "Admin User",   role: "ADMIN",   password: "Admin@123" },
-      { phone: "2222222222", name: "Cashier User", role: "CASHIER", password: "User@123"  },
+      { phone: "admin",   name: "Admin",   role: "ADMIN",   password: "Admin@123" },
+      { phone: "cashier", name: "Cashier", role: "CASHIER", password: "User@123"  },
     ];
     for (const u of demoUsers) {
       const exists = await prisma.user.findUnique({ where: { phone: u.phone } });

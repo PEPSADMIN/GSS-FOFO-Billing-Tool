@@ -58,8 +58,20 @@ export function Button({ label, loading, variant = "primary", disabled, style, .
   if (variant === "primary" || variant === "secondary") {
     const gradientColors = variant === "primary" ? gradients.primary : gradients.secondary;
     const glow = variant === "primary" ? glowFor(colors.primary) : glowFor(colors.accent);
+
+    // Dimming the gradient with opacity (instead of swapping to a flat color) makes it render as a
+    // blotchy, unevenly-colored button rather than a cleanly "greyed out" one — so disabled state
+    // gets its own flat treatment instead of reusing the gradient at reduced opacity.
+    if (disabled && !loading) {
+      return (
+        <Pressable disabled style={[styles.buttonWrap, styles.buttonDisabledFlat, style as object]} {...rest}>
+          <Text style={[styles.buttonText, styles.buttonTextDisabled]}>{label}</Text>
+        </Pressable>
+      );
+    }
+
     return (
-      <Pressable disabled={isDisabled} style={[styles.buttonWrap, isDisabled && styles.disabled, style as object]} {...rest}>
+      <Pressable disabled={isDisabled} style={[styles.buttonWrap, style as object]} {...rest}>
         <LinearGradient colors={gradientColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.button, glow]}>
           {loading ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.buttonText}>{label}</Text>}
         </LinearGradient>
@@ -180,6 +192,17 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: colors.accent,
+  },
+  buttonDisabledFlat: {
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buttonTextDisabled: {
+    color: colors.textMuted,
   },
   buttonDanger: {
     backgroundColor: "rgba(248, 113, 113, 0.12)",

@@ -57,7 +57,14 @@
       "Bash(git commit *)",
       "Bash(git push *)",
       "Bash(git pull *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(dir \"C:\\\\Users\\\\ADMIN\\\\Downloads\\\\Documentation\")",
+      "Bash(python -c ' *)",
+      "Bash(find \"/d\" -maxdepth 4 -iname \"*payu*\")",
+      "Bash(find \"/d\" -maxdepth 4 -iname \"*recon*\")",
+      "Bash(python3 -c ' *)",
+      "Bash(py -c \"print\\(1\\)\")",
+      "Bash(/c/Python314/python -c ' *)"
     ]
   }
 }

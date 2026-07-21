@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ColorValue, Pressable } from "react-native";
 import { useAuth } from "../../lib/auth-context";
 import { NavMenu } from "../../components/NavMenu";
+import { showConfirm } from "../../lib/alert";
 import { colors } from "../../lib/theme";
 
 function tabIcon(name: keyof typeof Ionicons.glyphMap) {
@@ -13,8 +14,13 @@ function tabIcon(name: keyof typeof Ionicons.glyphMap) {
 }
 
 export default function TabsLayout() {
-  const { hasTab, t } = useAuth();
+  const { hasTab, t, logout } = useAuth();
   const [menuVisible, setMenuVisible] = useState(false);
+
+  async function handleLogout() {
+    const confirmed = await showConfirm(t("action_logout"), "Are you sure you want to log out?", t("action_logout"));
+    if (confirmed) await logout();
+  }
 
   return (
     <>
@@ -28,6 +34,11 @@ export default function TabsLayout() {
         headerLeft: () => (
           <Pressable onPress={() => setMenuVisible(true)} hitSlop={8} style={{ paddingHorizontal: 14 }}>
             <Ionicons name="menu" size={24} color={colors.text} />
+          </Pressable>
+        ),
+        headerRight: () => (
+          <Pressable onPress={handleLogout} hitSlop={8} style={{ paddingHorizontal: 14 }}>
+            <Ionicons name="log-out-outline" size={24} color={colors.text} />
           </Pressable>
         ),
       }}

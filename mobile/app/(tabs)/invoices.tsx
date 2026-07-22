@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Linking, Modal, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import type { DueInstallmentDTO, InvoiceDTO, InvoiceStatus } from "@gss/shared";
+import type { InvoiceDTO, InvoiceStatus } from "@gss/shared";
 import { useAuth } from "../../lib/auth-context";
 import { api, ApiError } from "../../lib/api";
 import { formatMoney } from "../../lib/money";
 import { downloadFile } from "../../lib/download";
-import { Badge, Button, ModalHeader, Screen } from "../../components/ui";
+import { Button, Screen } from "../../components/ui";
 import { DateRangeModal } from "../../components/DateRangeModal";
 import { colors, radii, scaleFont, spacing } from "../../lib/theme";
 
@@ -36,8 +36,6 @@ export default function InvoicesScreen() {
   const [dateModalVisible, setDateModalVisible] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
-  const [dueInstallments, setDueInstallments] = useState<DueInstallmentDTO[]>([]);
-  const [remindersVisible, setRemindersVisible] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -86,19 +84,6 @@ export default function InvoicesScreen() {
       .finally(() => setLoadingMore(false));
   }
 
-  useEffect(() => {
-    if (!auth) return;
-    api.invoices
-      .dueInstallments(auth.token, 1)
-      .then(setDueInstallments)
-      .catch(() => setDueInstallments([]));
-  }, [auth]);
-
-  function callCustomer(phone?: string | null) {
-    if (!phone) return;
-    Linking.openURL(`tel:${phone}`).catch(() => {});
-  }
-
   async function exportInvoices() {
     if (!auth) return;
     setExportError(null);
@@ -116,15 +101,6 @@ export default function InvoicesScreen() {
 
   return (
     <Screen style={styles.container}>
-      {dueInstallments.length > 0 && (
-        <Pressable style={styles.reminderBanner} onPress={() => setRemindersVisible(true)}>
-          <Ionicons name="warning-outline" size={18} color={colors.warning} />
-          <Text style={styles.reminderBannerText}>
-            {dueInstallments.length} installment{dueInstallments.length > 1 ? "s" : ""} due today or overdue — tap to view
-          </Text>
-        </Pressable>
-      )}
-
       <View style={styles.filterRow}>
         {STATUS_FILTERS.map((status) => (
           <Pressable
@@ -193,72 +169,7 @@ export default function InvoicesScreen() {
         }}
         onClose={() => setDateModalVisible(false)}
       />
-
-      <RemindersModal
-        visible={remindersVisible}
-        installments={dueInstallments}
-        onClose={() => setRemindersVisible(false)}
-        onCall={callCustomer}
-        onViewInvoice={(invoiceId) => {
-          setRemindersVisible(false);
-          router.push(`/invoice/${invoiceId}`);
-        }}
-      />
     </Screen>
-  );
-}
-
-function RemindersModal({
-  visible,
-  installments,
-  onClose,
-  onCall,
-  onViewInvoice,
-}: {
-  visible: boolean;
-  installments: DueInstallmentDTO[];
-  onClose: () => void;
-  onCall: (phone?: string | null) => void;
-  onViewInvoice: (invoiceId: string) => void;
-}) {
-  return (
-    <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
-          <ModalHeader title="Payment Reminders" onClose={onClose} />
-          <FlatList
-            data={installments}
-            keyExtractor={(i) => i.id}
-            style={{ maxHeight: 420 }}
-            ListEmptyComponent={<Text style={styles.empty}>Nothing due</Text>}
-            renderItem={({ item }) => (
-              <View style={styles.reminderRow}>
-                <View style={{ flex: 1 }}>
-                  <View style={styles.reminderTitleRow}>
-                    <Text style={styles.invoiceNumber}>{item.customerName}</Text>
-                    <Badge label={item.status} tone={item.status === "OVERDUE" ? "danger" : "warning"} />
-                  </View>
-                  <Text style={styles.meta}>
-                    {item.invoiceNumber} · {formatMoney(item.amount)} · Due {new Date(item.dueDate).toLocaleDateString()}
-                  </Text>
-                  <View style={styles.reminderActions}>
-                    {item.customerPhone ? (
-                      <Pressable onPress={() => onCall(item.customerPhone)} style={styles.callBtn}>
-                        <Ionicons name="call-outline" size={14} color={colors.primary} />
-                        <Text style={styles.callBtnText}>Call {item.customerPhone}</Text>
-                      </Pressable>
-                    ) : null}
-                    <Pressable onPress={() => onViewInvoice(item.invoiceId)}>
-                      <Text style={styles.viewInvoiceLink}>View invoice</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-            )}
-          />
-        </View>
-      </View>
-    </Modal>
   );
 }
 
@@ -309,33 +220,4 @@ const styles = StyleSheet.create({
   amount: { fontSize: scaleFont(15), fontWeight: "600", color: colors.text },
   status: { fontSize: scaleFont(12), fontWeight: "700", marginTop: 2 },
   empty: { textAlign: "center", color: colors.textMuted, marginTop: 40 },
-  reminderBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    backgroundColor: "rgba(251,191,36,0.12)",
-    borderWidth: 1,
-    borderColor: colors.warning,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-  },
-  reminderBannerText: { color: colors.text, fontSize: scaleFont(13), fontWeight: "600", flex: 1 },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(2,6,16,0.7)", justifyContent: "flex-end" },
-  modalCard: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radii.lg,
-    borderTopRightRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.xl,
-    maxHeight: "85%",
-  },
-  reminderRow: { paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  reminderTitleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  reminderActions: { flexDirection: "row", alignItems: "center", gap: spacing.lg, marginTop: spacing.sm },
-  callBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
-  callBtnText: { color: colors.primary, fontWeight: "600", fontSize: scaleFont(13) },
-  viewInvoiceLink: { color: colors.accent, fontWeight: "600", fontSize: scaleFont(13) },
 });

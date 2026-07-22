@@ -1,21 +1,15 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
-import type { DispatchDTO, InstallmentDTO, InvoiceDTO, PaymentMode } from "@gss/shared";
+import type { DispatchDTO, InvoiceDTO, PaymentMode } from "@gss/shared";
 import { PAYMENT_MODE_LABELS, PAYMENT_MODES, rupeesToPaise, paiseToRupees } from "@gss/shared";
 import { useAuth } from "../../lib/auth-context";
 import { api, ApiError } from "../../lib/api";
 import { formatMoney } from "../../lib/money";
 import { showAlert } from "../../lib/alert";
 import { downloadFile } from "../../lib/download";
-import { scheduleInstallmentReminders, cancelInstallmentReminders } from "../../lib/notifications";
-import { Badge, Button, Input, ModalHeader, Screen } from "../../components/ui";
-import { DateField } from "../../components/DateField";
+import { Button, Input, Screen } from "../../components/ui";
 import { colors, radii, scaleFont, spacing, typography } from "../../lib/theme";
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default function InvoiceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -25,8 +19,6 @@ export default function InvoiceDetailScreen() {
   const [payMode, setPayMode] = useState<PaymentMode>("CASH");
   const [payAmountText, setPayAmountText] = useState("");
   const [recording, setRecording] = useState(false);
-  const [planModalVisible, setPlanModalVisible] = useState(false);
-  const [payingInstallmentId, setPayingInstallmentId] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const [docsEditing, setDocsEditing] = useState(false);
@@ -105,20 +97,6 @@ export default function InvoiceDetailScreen() {
     }
   }
 
-  async function payInstallment(installment: InstallmentDTO) {
-    if (!auth || !invoice) return;
-    setPayingInstallmentId(installment.id);
-    try {
-      const updated = await api.invoices.payInstallment(auth.token, invoice.id, installment.id, payMode);
-      setInvoice(updated);
-      await cancelInstallmentReminders(installment.id);
-    } catch (err) {
-      showAlert("Failed to record payment", err instanceof ApiError ? err.message : "Something went wrong. Try again.");
-    } finally {
-      setPayingInstallmentId(null);
-    }
-  }
-
   async function saveDocs() {
     if (!auth || !invoice) return;
     setSavingDocs(true);
@@ -142,19 +120,6 @@ export default function InvoiceDetailScreen() {
       showAlert("Failed", err instanceof ApiError ? err.message : "Something went wrong. Try again.");
     } finally {
       setSavingDocs(false);
-    }
-  }
-
-  async function clearPlan() {
-    if (!auth || !invoice) return;
-    try {
-      await api.invoices.clearInstallmentPlan(auth.token, invoice.id);
-      for (const inst of invoice.installments) {
-        if (!inst.paidAt) await cancelInstallmentReminders(inst.id);
-      }
-      load();
-    } catch (err) {
-      showAlert("Failed to clear plan", err instanceof ApiError ? err.message : "Something went wrong. Try again.");
     }
   }
 
@@ -322,56 +287,6 @@ export default function InvoiceDetailScreen() {
 
       {invoice.status !== "PAID" && (
         <View style={styles.payBox}>
-          <View style={styles.planHeaderRow}>
-            <Text style={[styles.sectionTitle, { marginTop: 0 }]}>Payment Plan (EMI)</Text>
-            <Pressable onPress={() => setPlanModalVisible(true)}>
-              <Text style={styles.clearLink}>{invoice.installments.length > 0 ? "Edit" : "Set up"}</Text>
-            </Pressable>
-          </View>
-
-          {invoice.installments.length === 0 ? (
-            <Text style={styles.meta}>No installment plan set up for this invoice.</Text>
-          ) : (
-            <>
-              {invoice.installments.map((inst) => (
-                <View key={inst.id} style={styles.installmentRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.lineName}>{formatMoney(inst.amount)}</Text>
-                    <Text style={styles.lineMeta}>
-                      Due {new Date(inst.dueDate).toLocaleDateString()}
-                      {inst.interestRate ? ` · ${inst.interestRate}% interest` : ""}
-                      {inst.documentCharges ? ` · ${formatMoney(inst.documentCharges)} charges` : ""}
-                    </Text>
-                  </View>
-                  <Badge
-                    label={inst.status}
-                    tone={inst.status === "PAID" ? "success" : inst.status === "OVERDUE" ? "danger" : "warning"}
-                  />
-                  {inst.status !== "PAID" && (
-                    <Pressable
-                      style={styles.markPaidBtn}
-                      onPress={() => payInstallment(inst)}
-                      disabled={payingInstallmentId === inst.id}
-                    >
-                      {payingInstallmentId === inst.id ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
-                      ) : (
-                        <Text style={styles.markPaidText}>Mark Paid</Text>
-                      )}
-                    </Pressable>
-                  )}
-                </View>
-              ))}
-              <Pressable onPress={clearPlan}>
-                <Text style={styles.clearLink}>Clear plan</Text>
-              </Pressable>
-            </>
-          )}
-        </View>
-      )}
-
-      {invoice.status !== "PAID" && (
-        <View style={styles.payBox}>
           <Text style={styles.sectionTitle}>Record Payment</Text>
           <Text style={styles.meta}>
             Remaining balance: {formatMoney(invoice.grandTotal - invoice.amountPaid)}
@@ -402,119 +317,8 @@ export default function InvoiceDetailScreen() {
         </View>
       )}
 
-      <InstallmentPlanModal
-        visible={planModalVisible}
-        invoice={invoice}
-        onClose={() => setPlanModalVisible(false)}
-        onSaved={(updatedInvoice) => {
-          setPlanModalVisible(false);
-          setInvoice(updatedInvoice);
-        }}
-      />
     </ScrollView>
     </Screen>
-  );
-}
-
-function InstallmentPlanModal({
-  visible,
-  invoice,
-  onClose,
-  onSaved,
-}: {
-  visible: boolean;
-  invoice: InvoiceDTO;
-  onClose: () => void;
-  onSaved: (invoice: InvoiceDTO) => void;
-}) {
-  const { auth } = useAuth();
-  const [count, setCount] = useState("3");
-  const [startDate, setStartDate] = useState(todayStr());
-  const [intervalDays, setIntervalDays] = useState("30");
-  const [interestRate, setInterestRate] = useState("");
-  const [documentCharges, setDocumentCharges] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const remaining = invoice.grandTotal - invoice.amountPaid;
-  const interestAmount = Math.round((remaining * (Number(interestRate) || 0)) / 100);
-  const chargesAmount = documentCharges.trim() ? rupeesToPaise(Number(documentCharges)) : 0;
-  const totalPayable = remaining + interestAmount + chargesAmount;
-
-  async function submit() {
-    if (!auth) return;
-    const countNum = Number(count);
-    const intervalNum = Number(intervalDays);
-    if (!countNum || countNum < 1) {
-      showAlert("Missing information", "Kindly fill the respective Number of Installments field to continue.");
-      return;
-    }
-    if (!startDate) {
-      showAlert("Missing information", "Kindly fill the respective Start Date field to continue.");
-      return;
-    }
-    if (!intervalNum || intervalNum < 1) {
-      showAlert("Missing information", "Kindly fill the respective Days Between Installments field to continue.");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const installments = await api.invoices.setInstallmentPlan(auth.token, invoice.id, {
-        count: countNum,
-        startDate,
-        intervalDays: intervalNum,
-        interestRate: interestRate.trim() ? Number(interestRate) : undefined,
-        documentCharges: documentCharges.trim() ? rupeesToPaise(Number(documentCharges)) : undefined,
-      });
-      await scheduleInstallmentReminders(
-        installments.map((i) => ({ id: i.id, dueDate: i.dueDate, amount: i.amount, invoiceNumber: invoice.invoiceNumber }))
-      );
-      const updated = await api.invoices.get(auth.token, invoice.id);
-      onSaved(updated);
-    } catch (err) {
-      showAlert("Failed to set up plan", err instanceof ApiError ? err.message : "Something went wrong. Try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
-          <ModalHeader title="Set up payment plan" onClose={onClose} />
-          <Text style={styles.meta}>Remaining balance: {formatMoney(remaining)}</Text>
-
-          <Text style={styles.fieldLabel}>Number of Installments</Text>
-          <Input placeholder="e.g. 3" keyboardType="number-pad" value={count} onChangeText={setCount} />
-
-          <Text style={styles.fieldLabel}>Start Date</Text>
-          <DateField value={startDate} onChange={setStartDate} placeholder="Select date" />
-
-          <Text style={styles.fieldLabel}>Days Between Installments</Text>
-          <Input placeholder="e.g. 30 for monthly" keyboardType="number-pad" value={intervalDays} onChangeText={setIntervalDays} />
-
-          <Text style={styles.fieldLabel}>Interest Rate (%, optional)</Text>
-          <Input placeholder="e.g. 12" keyboardType="decimal-pad" value={interestRate} onChangeText={setInterestRate} />
-
-          <Text style={styles.fieldLabel}>Document Charges (₹, optional)</Text>
-          <Input placeholder="e.g. 250" keyboardType="decimal-pad" value={documentCharges} onChangeText={setDocumentCharges} />
-
-          {Number(count) > 0 && (
-            <Text style={styles.meta}>
-              ≈ {formatMoney(Math.floor(totalPayable / Number(count)))} per installment, every {intervalDays || "?"} day(s).
-              {totalPayable > remaining ? ` Includes ${formatMoney(interestAmount + chargesAmount)} interest/charges.` : ""}
-            </Text>
-          )}
-
-          <View style={styles.modalActions}>
-            <Pressable onPress={onClose}>
-              <Text style={styles.cancelLink}>Cancel</Text>
-            </Pressable>
-            <Button label="Save Plan" variant="secondary" loading={submitting} onPress={submit} />
-          </View>
-        </View>
-      </View>
-    </Modal>
   );
 }
 
@@ -721,35 +525,5 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: scaleFont(12), color: colors.textMuted },
   chipTextActive: { color: colors.onPrimary },
-  planHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   clearLink: { color: colors.accent, fontWeight: "600", fontSize: scaleFont(13) },
-  installmentRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  markPaidBtn: {
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    minWidth: 70,
-    alignItems: "center",
-  },
-  markPaidText: { fontSize: scaleFont(11), fontWeight: "700", color: colors.primary },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(2,6,16,0.7)", justifyContent: "flex-end" },
-  modalCard: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radii.lg,
-    borderTopRightRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.xl,
-  },
-  modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: spacing.lg, marginTop: spacing.lg, alignItems: "center" },
-  cancelLink: { color: colors.textMuted, fontWeight: "600" },
 });

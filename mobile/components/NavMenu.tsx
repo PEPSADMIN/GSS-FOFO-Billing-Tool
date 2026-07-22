@@ -7,8 +7,8 @@ import { ModalHeader } from "./ui";
 import { colors, radii, scaleFont, spacing } from "../lib/theme";
 
 const MENU_ITEMS: { key: TabKey; icon: keyof typeof Ionicons.glyphMap; path: string }[] = [
-  { key: "home", icon: "home-outline", path: "/" },
-  { key: "dashboard", icon: "speedometer-outline", path: "/dashboard" },
+  { key: "dashboard", icon: "speedometer-outline", path: "/" },
+  { key: "home", icon: "home-outline", path: "/announcements" },
   { key: "billing", icon: "receipt-outline", path: "/billing" },
   { key: "invoices", icon: "document-text-outline", path: "/invoices" },
   { key: "customers", icon: "people-outline", path: "/customers" },

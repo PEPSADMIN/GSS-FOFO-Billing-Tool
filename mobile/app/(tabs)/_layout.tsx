@@ -45,15 +45,15 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{ title: t("nav_home"), tabBarIcon: tabIcon("home-outline"), href: hasTab("home") ? undefined : null }}
-      />
-      <Tabs.Screen
-        name="dashboard"
         options={{
           title: t("nav_dashboard"),
           tabBarIcon: tabIcon("speedometer-outline"),
           href: hasTab("dashboard") ? undefined : null,
         }}
+      />
+      <Tabs.Screen
+        name="announcements"
+        options={{ title: t("nav_home"), tabBarIcon: tabIcon("home-outline"), href: hasTab("home") ? undefined : null }}
       />
       <Tabs.Screen
         name="billing"

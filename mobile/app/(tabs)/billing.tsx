@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { CustomerAddressDTO, CustomerDTO, ItemDTO, PaymentMode } from "@gss/shared";
@@ -8,14 +8,8 @@ import { useAuth } from "../../lib/auth-context";
 import { api, ApiError } from "../../lib/api";
 import { formatMoney } from "../../lib/money";
 import { Button, Input, ModalHeader, Screen } from "../../components/ui";
-import { DateField } from "../../components/DateField";
 import { showAlert, showConfirm } from "../../lib/alert";
-import { scheduleInstallmentReminders } from "../../lib/notifications";
 import { colors, radii, scaleFont, spacing, typography } from "../../lib/theme";
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 interface LineItem {
   item: ItemDTO;
@@ -62,7 +56,7 @@ export default function BillingScreen() {
   const [ewayBillNo, setEwayBillNo] = useState("");
   const [cinNumber, setCinNumber] = useState("");
   const [acknowledgeNo, setAcknowledgeNo] = useState("");
-  const [transportMode, setTransportMode] = useState("ROAD");
+  const transportMode = "ROAD";
   const [transporterName, setTransporterName] = useState("");
   const [vehicleRegNo, setVehicleRegNo] = useState("");
   const [driverContactNo, setDriverContactNo] = useState("");
@@ -70,23 +64,21 @@ export default function BillingScreen() {
   const [lrNo, setLrNo] = useState("");
   const [lrDate, setLrDate] = useState("");
 
-  const [planEnabled, setPlanEnabled] = useState(false);
-  const [planCount, setPlanCount] = useState("3");
-  const [planStartDate, setPlanStartDate] = useState(todayStr());
-  const [planIntervalDays, setPlanIntervalDays] = useState("30");
-  const [planInterestRate, setPlanInterestRate] = useState("");
-  const [planDocumentCharges, setPlanDocumentCharges] = useState("");
+  const [itemSearchLoading, setItemSearchLoading] = useState(false);
 
   useEffect(() => {
     if (!auth || itemQuery.trim().length < 1) {
       setItemResults([]);
+      setItemSearchLoading(false);
       return;
     }
+    setItemSearchLoading(true);
     const handle = setTimeout(() => {
       api.items
         .list(auth.token, { search: itemQuery.trim() })
         .then((res) => setItemResults(res.data))
-        .catch(() => setItemResults([]));
+        .catch(() => setItemResults([]))
+        .finally(() => setItemSearchLoading(false));
     }, 300);
     return () => clearTimeout(handle);
   }, [itemQuery, auth]);
@@ -120,14 +112,6 @@ export default function BillingScreen() {
     () => payments.reduce((sum, p) => sum + (rupeesToPaise(Number(p.amountText) || 0)), 0),
     [payments]
   );
-
-  const planTotalPayable = useMemo(() => {
-    const remaining = totals.grandTotal - amountPaid;
-    const rate = Number(planInterestRate) || 0;
-    const charges = planDocumentCharges.trim() ? rupeesToPaise(Number(planDocumentCharges)) : 0;
-    const interest = Math.round((remaining * rate) / 100);
-    return remaining + interest + charges;
-  }, [totals.grandTotal, amountPaid, planInterestRate, planDocumentCharges]);
 
   function addItem(item: ItemDTO) {
     setLineItems((prev) => {
@@ -191,19 +175,12 @@ export default function BillingScreen() {
     setEwayBillNo("");
     setCinNumber("");
     setAcknowledgeNo("");
-    setTransportMode("ROAD");
     setTransporterName("");
     setVehicleRegNo("");
     setDriverContactNo("");
     setPoNo("");
     setLrNo("");
     setLrDate("");
-    setPlanEnabled(false);
-    setPlanCount("3");
-    setPlanStartDate(todayStr());
-    setPlanIntervalDays("30");
-    setPlanInterestRate("");
-    setPlanDocumentCharges("");
   }
 
   async function submitInvoice() {
@@ -234,26 +211,6 @@ export default function BillingScreen() {
       );
       return;
     }
-    const planCountNum = Number(planCount);
-    const planIntervalNum = Number(planIntervalDays);
-    if (planEnabled) {
-      if (amountPaid >= totals.grandTotal) {
-        showAlert("Nothing left to plan", "This invoice will be fully paid, so there's no remaining balance to set up a payment plan for.");
-        return;
-      }
-      if (!planCountNum || planCountNum < 1) {
-        showAlert("Missing information", "Kindly fill the respective Number of Installments field to continue.");
-        return;
-      }
-      if (!planStartDate) {
-        showAlert("Missing information", "Kindly fill the respective Start Date field to continue.");
-        return;
-      }
-      if (!planIntervalNum || planIntervalNum < 1) {
-        showAlert("Missing information", "Kindly fill the respective Days Between Installments field to continue.");
-        return;
-      }
-    }
     try {
       const creditStatus = await api.customers.creditStatus(auth.token, selectedCustomer.id);
       const invoiceBalance = totals.grandTotal - amountPaid;
@@ -282,7 +239,7 @@ export default function BillingScreen() {
         ewayBillNo: ewayBillNo.trim() || undefined,
         cinNumber: cinNumber.trim() || undefined,
         acknowledgeNo: acknowledgeNo.trim() || undefined,
-        transportMode: transportMode.trim() || undefined,
+        transportMode,
         transporterName: transporterName.trim() || undefined,
         vehicleRegNo: vehicleRegNo.trim() || undefined,
         driverContactNo: driverContactNo.trim() || undefined,
@@ -290,28 +247,6 @@ export default function BillingScreen() {
         lrNo: lrNo.trim() || undefined,
         lrDate: lrDate.trim() || undefined,
       });
-
-      if (planEnabled) {
-        try {
-          const installments = await api.invoices.setInstallmentPlan(auth.token, invoice.id, {
-            count: planCountNum,
-            startDate: planStartDate,
-            intervalDays: planIntervalNum,
-            interestRate: planInterestRate.trim() ? Number(planInterestRate) : undefined,
-            documentCharges: planDocumentCharges.trim() ? rupeesToPaise(Number(planDocumentCharges)) : undefined,
-          });
-          await scheduleInstallmentReminders(
-            installments.map((i) => ({ id: i.id, dueDate: i.dueDate, amount: i.amount, invoiceNumber: invoice.invoiceNumber }))
-          );
-        } catch (planErr) {
-          // The invoice itself was created successfully — only the plan failed. Let the user fix the
-          // plan from the invoice detail page rather than hiding a created invoice behind a form error.
-          showAlert(
-            "Invoice created, but payment plan failed",
-            planErr instanceof ApiError ? planErr.message : "You can set up the payment plan from the invoice screen."
-          );
-        }
-      }
 
       resetForm();
       router.push(`/invoice/${invoice.id}`);
@@ -382,6 +317,7 @@ export default function BillingScreen() {
 
       <Text style={styles.sectionTitle}>Items</Text>
       <Input placeholder="Search item by name" value={itemQuery} onChangeText={setItemQuery} />
+      {itemSearchLoading && <ActivityIndicator color={colors.accent} style={{ marginBottom: spacing.sm }} />}
       {itemResults.map((item) => (
         <Pressable key={item.id} style={styles.resultRow} onPress={() => addItem(item)}>
           <Text style={styles.resultText}>
@@ -389,6 +325,9 @@ export default function BillingScreen() {
           </Text>
         </Pressable>
       ))}
+      {!itemSearchLoading && itemQuery.trim().length > 0 && itemResults.length === 0 && (
+        <Text style={styles.error}>No item found matching "{itemQuery.trim()}"</Text>
+      )}
 
       {lineItems.map((li) => (
         <View key={li.item.id} style={styles.lineItemRow}>
@@ -481,73 +420,8 @@ export default function BillingScreen() {
         </Text>
       )}
 
-      {lineItems.length > 0 && amountPaid < totals.grandTotal && (
-        <>
-          <View style={styles.planToggleRow}>
-            <Text style={styles.sectionTitle}>Payment Plan (EMI)</Text>
-            <Switch value={planEnabled} onValueChange={setPlanEnabled} />
-          </View>
-          {planEnabled && (
-            <View style={styles.planBox}>
-              <Text style={styles.meta}>Remaining balance: {formatMoney(totals.grandTotal - amountPaid)}</Text>
-
-              <Text style={styles.fieldLabel}>Number of Installments</Text>
-              <Input placeholder="e.g. 3" keyboardType="number-pad" value={planCount} onChangeText={setPlanCount} />
-
-              <Text style={styles.fieldLabel}>Start Date</Text>
-              <DateField value={planStartDate} onChange={setPlanStartDate} placeholder="Select date" />
-
-              <Text style={styles.fieldLabel}>Days Between Installments</Text>
-              <Input
-                placeholder="e.g. 30 for monthly"
-                keyboardType="number-pad"
-                value={planIntervalDays}
-                onChangeText={setPlanIntervalDays}
-              />
-
-              <Text style={styles.fieldLabel}>Interest Rate (%, optional)</Text>
-              <Input
-                placeholder="e.g. 12"
-                keyboardType="decimal-pad"
-                value={planInterestRate}
-                onChangeText={setPlanInterestRate}
-              />
-
-              <Text style={styles.fieldLabel}>Document Charges (₹, optional)</Text>
-              <Input
-                placeholder="e.g. 250"
-                keyboardType="decimal-pad"
-                value={planDocumentCharges}
-                onChangeText={setPlanDocumentCharges}
-              />
-
-              {Number(planCount) > 0 && (
-                <Text style={styles.meta}>
-                  ≈ {formatMoney(Math.floor(planTotalPayable / Number(planCount)))} per installment, every {planIntervalDays || "?"}{" "}
-                  day(s).
-                  {planTotalPayable > totals.grandTotal - amountPaid
-                    ? ` Includes ${formatMoney(planTotalPayable - (totals.grandTotal - amountPaid))} interest/charges.`
-                    : ""}
-                </Text>
-              )}
-            </View>
-          )}
-        </>
-      )}
-
       <Text style={styles.sectionTitle}>Transport Details</Text>
-      <Text style={styles.meta}>Mode of Transport</Text>
-      <View style={styles.transportModeRow}>
-        {(["ROAD", "AIR", "RAIL", "SHIP"] as const).map((mode) => (
-          <Pressable
-            key={mode}
-            style={[styles.modeChip, transportMode === mode && styles.modeChipActive]}
-            onPress={() => setTransportMode(mode)}
-          >
-            <Text style={[styles.modeChipText, transportMode === mode && styles.modeChipTextActive]}>{mode}</Text>
-          </Pressable>
-        ))}
-      </View>
+      <Text style={styles.meta}>Mode of Transport: Road</Text>
       <Input placeholder="Transporter Name" value={transporterName} onChangeText={setTransporterName} />
       <Input placeholder="Vehicle Registration No. (e.g. MH12AB1234)" value={vehicleRegNo} onChangeText={(v) => setVehicleRegNo(v.toUpperCase())} autoCapitalize="characters" />
       <Input placeholder="Driver Contact No." value={driverContactNo} onChangeText={setDriverContactNo} keyboardType="phone-pad" />
@@ -816,29 +690,6 @@ const styles = StyleSheet.create({
   addPaymentLink: { color: colors.accent, fontWeight: "600", marginBottom: spacing.lg },
   amountPaidText: { fontSize: scaleFont(14), color: colors.textMuted, marginBottom: spacing.md },
   amountPaidTextError: { color: colors.danger, fontWeight: "600" },
-  planToggleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  planBox: {
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-  },
   meta: { fontSize: scaleFont(13), color: colors.textMuted, marginTop: 2 },
-  fieldLabel: { fontSize: scaleFont(13), fontWeight: "600", color: colors.text, marginBottom: 6, marginTop: spacing.sm },
   error: { color: colors.danger, marginBottom: spacing.md },
-  transportModeRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.sm, flexWrap: "wrap" },
-  modeChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  modeChipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  modeChipText: { fontSize: scaleFont(13), color: colors.text },
-  modeChipTextActive: { color: "#fff", fontWeight: "600" },
 });

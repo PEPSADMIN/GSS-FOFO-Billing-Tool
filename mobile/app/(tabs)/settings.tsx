@@ -25,7 +25,7 @@ const FONT_SIZE_KEYS: Record<FontScaleId, TranslationKey> = {
 };
 
 export default function SettingsScreen() {
-  const { auth, t, updateUserPreferences } = useAuth();
+  const { auth, t, updateUserPreferences, updateOutlet } = useAuth();
   const [savingTheme, setSavingTheme] = useState(false);
   const [savingFont, setSavingFont] = useState(false);
   const [savingLanguage, setSavingLanguage] = useState(false);
@@ -104,7 +104,7 @@ export default function SettingsScreen() {
     }
     setSavingOutlet(true);
     try {
-      await api.outlet.update(auth.token, {
+      const updated = await api.outlet.update(auth.token, {
         name: outletName.trim(),
         gstin,
         panCode: pan,
@@ -118,6 +118,7 @@ export default function SettingsScreen() {
         bankAccountNo: outletBankAccountNo.trim() || undefined,
         bankIfscCode: outletBankIfscCode.trim().toUpperCase() || undefined,
       });
+      await updateOutlet({ name: updated.name, gstin: updated.gstin, stateCode: updated.stateCode, panCode: updated.panCode });
       showAlert("Saved", "Your business details have been updated.");
     } catch (err) {
       showAlert("Failed to save", err instanceof ApiError ? err.message : "Something went wrong. Try again.");

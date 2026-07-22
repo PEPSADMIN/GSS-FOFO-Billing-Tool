@@ -21,6 +21,7 @@ interface AuthContextValue {
   hasTab: (tab: TabKey) => boolean;
   t: (key: TranslationKey) => string;
   updateUserPreferences: (partial: Partial<LoginResponse["user"]>) => Promise<void>;
+  updateOutlet: (partial: Partial<LoginResponse["outlet"]>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -77,8 +78,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth(next);
   }
 
+  async function updateOutlet(partial: Partial<LoginResponse["outlet"]>) {
+    if (!auth) return;
+    const next: AuthState = { ...auth, outlet: { ...auth.outlet, ...partial } };
+    await storage.setItem(STORAGE_KEY, JSON.stringify(next));
+    setAuth(next);
+  }
+
   return (
-    <AuthContext.Provider value={{ auth, loading, login, logout, hasTab, t, updateUserPreferences }}>
+    <AuthContext.Provider value={{ auth, loading, login, logout, hasTab, t, updateUserPreferences, updateOutlet }}>
       {children}
     </AuthContext.Provider>
   );

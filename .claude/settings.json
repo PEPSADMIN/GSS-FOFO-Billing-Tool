@@ -68,7 +68,8 @@
       "Bash(node -e ' *)",
       "Bash(node import_items.js)",
       "Bash(node render_pdf.js)",
-      "Bash(node render_pdf_zoom.js)"
+      "Bash(node render_pdf_zoom.js)",
+      "Bash(git config *)"
     ]
   }
 }

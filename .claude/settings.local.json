@@ -22,7 +22,9 @@
       "Bash(mkdir -p /d/Billing)",
       "Bash(robocopy \"D:\\\\Hari JR. DATA\\\\Development\\\\Billing\" \"D:\\\\Billing\" /E /XD node_modules .git .expo android .cxx build /XF *.log)",
       "Bash(curl -s http://192.168.137.1:4000/api/health -w \"\\\\nstatus:%{http_code}\\\\n\" --max-time 5)",
-      "Bash(echo \"--- before ---\" *)"
+      "Bash(echo \"--- before ---\" *)",
+      "Bash(head -300 items_to_import.ndjson)",
+      "Bash(NDJSON_PATH=__TRACKED_VAR__/items_test300.ndjson PROGRESS_LOG=__TRACKED_VAR__/test_progress.log FAIL_LOG=__TRACKED_VAR__/test_failures.log CONCURRENCY=30 node import_items.js)"
     ],
     "additionalDirectories": [
       "\\tmp",

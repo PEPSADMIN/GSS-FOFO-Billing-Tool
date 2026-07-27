@@ -64,7 +64,9 @@
       "Bash(find \"/d\" -maxdepth 4 -iname \"*recon*\")",
       "Bash(python3 -c ' *)",
       "Bash(py -c \"print\\(1\\)\")",
-      "Bash(/c/Python314/python -c ' *)"
+      "Bash(/c/Python314/python -c ' *)",
+      "Bash(node -e ' *)",
+      "Bash(node import_items.js)"
     ]
   }
 }

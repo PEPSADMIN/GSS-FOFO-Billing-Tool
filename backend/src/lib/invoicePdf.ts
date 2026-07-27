@@ -109,8 +109,12 @@ function drawCopy(doc: PDFKit.PDFDocument, inv: InvoicePdfInput, copyLabel: stri
   doc.rect(lblX, y, lblW, lblH).fill("#dddddd");
   doc.font("Helvetica-Bold").fontSize(7).fillColor("#000000").text(copyLabel, lblX, y + 3, { width: lblW, align: "center" });
 
+  // Brand line
+  doc.font("Helvetica-Bold").fontSize(6).fillColor("#000000").text("Peps", MARGIN, y + 2, { width: CW - lblW - 8 });
+  y = doc.y + 1;
+
   // Company name
-  doc.font("Helvetica-Bold").fontSize(13).fillColor("#000000").text(inv.outlet.name, MARGIN, y + 2, { width: CW - lblW - 8 });
+  doc.font("Helvetica-Bold").fontSize(13).fillColor("#000000").text(inv.outlet.name, MARGIN, y, { width: CW - lblW - 8 });
   y = doc.y + 2;
 
   // Warehouse address

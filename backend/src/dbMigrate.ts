@@ -346,6 +346,40 @@ export async function migrate(): Promise<void> {
     }
   }
 
+  // Second, independent test outlet — distinct business details and its own stock, so
+  // multi-tenant isolation can be verified by logging in as two different owners.
+  const secondOutlet = await prisma.outlet.upsert({
+    where: { gstin: "29TSTPB1234T1Z8" },
+    update: {},
+    create: {
+      name: "Bright Traders (Test Business 2)",
+      gstin: "29TSTPB1234T1Z8",
+      stateCode: "29",
+      addressLine: "No. 12, Commercial Street",
+      city: "Bengaluru",
+      pincode: "560001",
+      phone: "8888800000",
+    },
+  });
+  const secondOwnerExists = await prisma.user.findUnique({ where: { phone: "8888888888" } });
+  if (!secondOwnerExists) {
+    const hash = await bcrypt.hash("Test@1234", 10);
+    await prisma.user.create({
+      data: { outletId: secondOutlet.id, name: "Owner Two", phone: "8888888888", passwordHash: hash, role: "OWNER" },
+    });
+    console.log("[migrate] Created second test outlet owner — 8888888888 / Test@1234");
+  }
+  const secondOutletItemCount = await prisma.item.count({ where: { outletId: secondOutlet.id } });
+  if (secondOutletItemCount === 0) {
+    await prisma.item.createMany({
+      data: [
+        { outletId: secondOutlet.id, name: "Wooden Chair", hsnCode: "9401", unit: "PCS", gstRate: 18, price: 250000, currentStock: 40, lowStockThreshold: 5 },
+        { outletId: secondOutlet.id, name: "Steel Almirah", hsnCode: "9403", unit: "PCS", gstRate: 18, price: 850000, currentStock: 12, lowStockThreshold: 3 },
+      ],
+    });
+    console.log("[migrate] Seeded stock for second test outlet");
+  }
+
   await prisma.$disconnect();
   console.log("[migrate] Schema ready.");
 }

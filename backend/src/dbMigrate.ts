@@ -398,6 +398,18 @@ export async function migrate(): Promise<void> {
     console.log("[migrate] Seeded stock for second test outlet");
   }
 
+  // SUPER_ADMIN — cross-outlet read-only oversight account. It's tied to an outletId only
+  // because User.outletId is required by the schema; its actual access comes from the role
+  // check in /api/dashboard/all-outlets, not from that outletId.
+  const superAdminExists = await prisma.user.findUnique({ where: { phone: "superadmin" } });
+  if (!superAdminExists) {
+    const hash = await bcrypt.hash("SuperAdmin@123", 10);
+    await prisma.user.create({
+      data: { outletId: secondOutlet.id, name: "Super Admin", phone: "superadmin", passwordHash: hash, role: "SUPER_ADMIN" },
+    });
+    console.log("[migrate] Created super admin — superadmin / SuperAdmin@123");
+  }
+
   await prisma.$disconnect();
   console.log("[migrate] Schema ready.");
 }

@@ -1,4 +1,4 @@
-export type Role = "OWNER" | "ADMIN" | "CASHIER";
+export type Role = "OWNER" | "ADMIN" | "CASHIER" | "SUPER_ADMIN";
 export const PAYMENT_MODES = ["CASH", "UPI", "CARD", "CREDIT", "BANK_TRANSFER", "CHEQUE", "WALLET"] as const;
 export type PaymentMode = (typeof PAYMENT_MODES)[number];
 
@@ -44,6 +44,8 @@ export const DEFAULT_TABS_BY_ROLE: Record<Role, TabKey[]> = {
   OWNER: ["home", "dashboard", "billing", "invoices", "customers", "items", "reports", "admin"],
   ADMIN: ["home", "dashboard", "billing", "invoices", "customers", "items", "reports"],
   CASHIER: ["home", "billing", "invoices", "customers"],
+  // Cross-outlet oversight only — no single business's billing/items/customers.
+  SUPER_ADMIN: ["dashboard"],
 };
 
 export interface RoleDTO {
@@ -406,6 +408,16 @@ export interface DashboardDTO {
   topCustomers: { customerId: string; name: string; total: number }[];
   topItems: { itemId: string; name: string; total: number }[];
   recentInvoices: { id: string; invoiceNumber: string; customerName: string; grandTotal: number; status: InvoiceStatus; createdAt: string }[];
+}
+
+export interface OutletSalesSummaryDTO {
+  outletId: string;
+  outletName: string;
+  todaySales: number;
+  monthlySales: number;
+  totalInvoices: number;
+  outstandingAmount: number;
+  totalCustomers: number;
 }
 
 export type AgingBucket = "0-30" | "31-60" | "61-90" | "90+";

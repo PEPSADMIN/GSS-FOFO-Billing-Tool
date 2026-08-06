@@ -9,6 +9,7 @@ import { api, ApiError } from "../../lib/api";
 import { formatMoney } from "../../lib/money";
 import { Card, Screen, SectionHeader } from "../../components/ui";
 import { DateRangeModal } from "../../components/DateRangeModal";
+import { SuperAdminDashboard } from "../../components/SuperAdminDashboard";
 import { colors, radii, scaleFont, spacing } from "../../lib/theme";
 
 const STATUS_COLORS: Record<InvoiceStatus, string> = {
@@ -31,6 +32,10 @@ export default function DashboardScreen() {
   // role that omits it) still need somewhere to land — send them to Announcements instead.
   if (!hasTab("dashboard")) {
     return <Redirect href="/announcements" />;
+  }
+
+  if (auth?.user.role === "SUPER_ADMIN") {
+    return <SuperAdminDashboard />;
   }
 
   return <DashboardContent auth={auth} router={router} />;

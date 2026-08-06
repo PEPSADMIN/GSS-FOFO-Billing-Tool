@@ -25,6 +25,7 @@ import type {
   CreateDispatchInput,
   MarkDeliveredInput,
   DashboardDTO,
+  OutletSalesSummaryDTO,
   OutstandingSummaryDTO,
   BulkDeleteResultDTO,
   PaginatedDTO,
@@ -296,6 +297,7 @@ export const api = {
   dashboard: {
     get: (token: string, opts?: { from?: string; to?: string }) =>
       apiRequest<DashboardDTO>("/api/dashboard", { token, query: opts }),
+    allOutlets: (token: string) => apiRequest<OutletSalesSummaryDTO[]>("/api/dashboard/all-outlets", { token }),
   },
 
   auditLog: {

@@ -41,6 +41,13 @@ export function requireOwner(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+export function requireSuperAdmin(req: Request, res: Response, next: NextFunction) {
+  if (req.user?.role !== "SUPER_ADMIN") {
+    return res.status(403).json({ error: "Only a super admin can perform this action" });
+  }
+  next();
+}
+
 export function requireTab(tab: TabKey) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user?.tabs?.includes(tab)) {

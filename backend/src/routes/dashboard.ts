@@ -1,9 +1,49 @@
 import { Router } from "express";
 import { prisma } from "../prisma";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireSuperAdmin } from "../middleware/auth";
 
 export const dashboardRouter = Router();
 dashboardRouter.use(requireAuth);
+
+// Cross-outlet sales comparison for SUPER_ADMIN accounts — every other route in this file
+// (and this whole app) is scoped to req.user.outletId; this is the one deliberate exception,
+// gated by role rather than outlet membership.
+dashboardRouter.get("/all-outlets", requireSuperAdmin, async (_req, res, next) => {
+  try {
+    const now = new Date();
+    const todayStart = new Date(`${now.toISOString().slice(0, 10)}T00:00:00`);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const outlets = await prisma.outlet.findMany({ select: { id: true, name: true } });
+
+    const summaries = await Promise.all(
+      outlets.map(async (outlet) => {
+        const [todayInvoices, monthlyInvoices, unpaidInvoices, totalCustomers, totalInvoices] = await Promise.all([
+          prisma.invoice.findMany({ where: { outletId: outlet.id, createdAt: { gte: todayStart } }, select: { grandTotal: true } }),
+          prisma.invoice.findMany({ where: { outletId: outlet.id, createdAt: { gte: monthStart } }, select: { grandTotal: true } }),
+          prisma.invoice.findMany({ where: { outletId: outlet.id, status: { not: "PAID" } }, select: { grandTotal: true, amountPaid: true } }),
+          prisma.customer.count({ where: { outletId: outlet.id, active: true } }),
+          prisma.invoice.count({ where: { outletId: outlet.id } }),
+        ]);
+
+        return {
+          outletId: outlet.id,
+          outletName: outlet.name,
+          todaySales: todayInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0),
+          monthlySales: monthlyInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0),
+          totalInvoices,
+          outstandingAmount: unpaidInvoices.reduce((sum, inv) => sum + (inv.grandTotal - inv.amountPaid), 0),
+          totalCustomers,
+        };
+      })
+    );
+
+    summaries.sort((a, b) => b.monthlySales - a.monthlySales);
+    res.json(summaries);
+  } catch (err) {
+    next(err);
+  }
+});
 
 function dateKey(d: Date): string {
   return d.toISOString().slice(0, 10);

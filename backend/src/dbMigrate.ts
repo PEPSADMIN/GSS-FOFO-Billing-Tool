@@ -286,6 +286,16 @@ export async function migrate(): Promise<void> {
     await prisma.$executeRawUnsafe(sql);
   }
 
+  // CREATE TABLE IF NOT EXISTS above doesn't retrofit columns onto tables that already
+  // exist, so newly-added columns need an explicit, idempotent ALTER TABLE here too —
+  // this ran out of sync with `prisma migrate deploy` once already (missing Outlet.logoBase64
+  // took prod down), so ADD COLUMN failures are swallowed rather than trusted to be pre-applied.
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "Outlet" ADD COLUMN "logoBase64" TEXT`);
+  } catch {
+    // Column already exists — fine.
+  }
+
   const outletCount = await prisma.outlet.count();
   if (outletCount === 0) {
     console.log("[migrate] Fresh database — seeding initial data...");

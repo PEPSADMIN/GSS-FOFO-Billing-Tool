@@ -113,10 +113,17 @@ export default function BillingScreen() {
     [payments]
   );
 
+  // Blankets are sold as single units, not by variable quantity like trial/sample
+  // mattress items — their quantity stays fixed at 1 instead of being adjustable.
+  function isFixedQtyItem(name: string): boolean {
+    return name.toLowerCase().includes("blanket");
+  }
+
   function addItem(item: ItemDTO) {
     setLineItems((prev) => {
       const existing = prev.find((li) => li.item.id === item.id);
       if (existing) {
+        if (isFixedQtyItem(item.name)) return prev;
         return prev.map((li) => (li.item.id === item.id ? { ...li, quantity: li.quantity + 1 } : li));
       }
       return [...prev, { item, quantity: 1 }];
@@ -128,7 +135,7 @@ export default function BillingScreen() {
   function changeQuantity(itemId: string, delta: number) {
     setLineItems((prev) =>
       prev
-        .map((li) => (li.item.id === itemId ? { ...li, quantity: li.quantity + delta } : li))
+        .map((li) => (li.item.id === itemId && !isFixedQtyItem(li.item.name) ? { ...li, quantity: li.quantity + delta } : li))
         .filter((li) => li.quantity > 0)
     );
     setQtyText((prev) => {
@@ -337,20 +344,26 @@ export default function BillingScreen() {
               {formatMoney(li.item.price)} × {li.quantity} · GST {li.item.gstRate}%
             </Text>
           </View>
-          <Pressable style={styles.qtyButton} onPress={() => changeQuantity(li.item.id, -1)}>
-            <Text style={styles.qtyButtonText}>−</Text>
-          </Pressable>
-          <Input
-            style={styles.qtyInput}
-            keyboardType="number-pad"
-            value={qtyText[li.item.id] ?? String(li.quantity)}
-            onChangeText={(text) => setQuantityText(li.item.id, text)}
-            onBlur={() => commitQuantity(li.item.id)}
-            selectTextOnFocus
-          />
-          <Pressable style={styles.qtyButton} onPress={() => changeQuantity(li.item.id, 1)}>
-            <Text style={styles.qtyButtonText}>+</Text>
-          </Pressable>
+          {isFixedQtyItem(li.item.name) ? (
+            <Text style={styles.fixedQtyText}>Qty 1</Text>
+          ) : (
+            <>
+              <Pressable style={styles.qtyButton} onPress={() => changeQuantity(li.item.id, -1)}>
+                <Text style={styles.qtyButtonText}>−</Text>
+              </Pressable>
+              <Input
+                style={styles.qtyInput}
+                keyboardType="number-pad"
+                value={qtyText[li.item.id] ?? String(li.quantity)}
+                onChangeText={(text) => setQuantityText(li.item.id, text)}
+                onBlur={() => commitQuantity(li.item.id)}
+                selectTextOnFocus
+              />
+              <Pressable style={styles.qtyButton} onPress={() => changeQuantity(li.item.id, 1)}>
+                <Text style={styles.qtyButtonText}>+</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       ))}
 
@@ -660,6 +673,7 @@ const styles = StyleSheet.create({
     width: 48,
     marginBottom: 0,
   },
+  fixedQtyText: { fontSize: scaleFont(13), fontWeight: "600", color: colors.textMuted },
   totalsBox: {
     marginTop: spacing.lg,
     padding: spacing.md,

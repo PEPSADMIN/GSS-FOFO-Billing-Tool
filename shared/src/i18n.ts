@@ -45,7 +45,7 @@ type Dictionary = Record<TranslationKey, string>;
 
 export const TRANSLATIONS: Record<string, Dictionary> = {
   en: {
-    nav_home: "Home",
+    nav_home: "Announcements",
     nav_dashboard: "Dashboard",
     nav_billing: "Billing",
     nav_invoices: "Invoices",
@@ -83,7 +83,7 @@ export const TRANSLATIONS: Record<string, Dictionary> = {
     login_logIn: "Log in",
   },
   hi: {
-    nav_home: "होम",
+    nav_home: "घोषणाएं",
     nav_dashboard: "डैशबोर्ड",
     nav_billing: "बिलिंग",
     nav_invoices: "इनवॉइस",
@@ -121,7 +121,7 @@ export const TRANSLATIONS: Record<string, Dictionary> = {
     login_logIn: "लॉग इन करें",
   },
   bn: {
-    nav_home: "হোম",
+    nav_home: "ঘোষণা",
     nav_dashboard: "ড্যাশবোর্ড",
     nav_billing: "বিলিং",
     nav_invoices: "চালান",
@@ -159,7 +159,7 @@ export const TRANSLATIONS: Record<string, Dictionary> = {
     login_logIn: "লগ ইন",
   },
   te: {
-    nav_home: "హోమ్",
+    nav_home: "ప్రకటనలు",
     nav_dashboard: "డాష్‌బోర్డ్",
     nav_billing: "బిల్లింగ్",
     nav_invoices: "ఇన్వాయిస్‌లు",
@@ -197,7 +197,7 @@ export const TRANSLATIONS: Record<string, Dictionary> = {
     login_logIn: "లాగిన్",
   },
   mr: {
-    nav_home: "होम",
+    nav_home: "घोषणा",
     nav_dashboard: "डॅशबोर्ड",
     nav_billing: "बिलिंग",
     nav_invoices: "इनव्हॉइस",
@@ -235,7 +235,7 @@ export const TRANSLATIONS: Record<string, Dictionary> = {
     login_logIn: "लॉग इन करा",
   },
   ta: {
-    nav_home: "முகப்பு",
+    nav_home: "அறிவிப்புகள்",
     nav_dashboard: "டாஷ்போர்டு",
     nav_billing: "பில்லிங்",
     nav_invoices: "விலைப்பட்டியல்கள்",
@@ -273,7 +273,7 @@ export const TRANSLATIONS: Record<string, Dictionary> = {
     login_logIn: "உள்நுழை",
   },
   gu: {
-    nav_home: "હોમ",
+    nav_home: "જાહેરાતો",
     nav_dashboard: "ડેશબોર્ડ",
     nav_billing: "બિલિંગ",
     nav_invoices: "ઇનવોઇસ",
@@ -311,7 +311,7 @@ export const TRANSLATIONS: Record<string, Dictionary> = {
     login_logIn: "લોગ ઇન",
   },
   kn: {
-    nav_home: "ಮುಖಪುಟ",
+    nav_home: "ಪ್ರಕಟಣೆಗಳು",
     nav_dashboard: "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್",
     nav_billing: "ಬಿಲ್ಲಿಂಗ್",
     nav_invoices: "ಇನ್‌ವಾಯ್ಸ್‌ಗಳು",
@@ -349,7 +349,7 @@ export const TRANSLATIONS: Record<string, Dictionary> = {
     login_logIn: "ಲಾಗ್ ಇನ್",
   },
   or: {
-    nav_home: "ହୋମ",
+    nav_home: "ଘୋଷଣା",
     nav_dashboard: "ଡାସବୋର୍ଡ",
     nav_billing: "ବିଲିଂ",
     nav_invoices: "ଇନଭଏସ",
@@ -387,7 +387,7 @@ export const TRANSLATIONS: Record<string, Dictionary> = {
     login_logIn: "ଲଗ ଇନ",
   },
   ml: {
-    nav_home: "ഹോം",
+    nav_home: "അറിയിപ്പുകൾ",
     nav_dashboard: "ഡാഷ്ബോർഡ്",
     nav_billing: "ബില്ലിംഗ്",
     nav_invoices: "ഇൻവോയ്സുകൾ",
@@ -425,7 +425,7 @@ export const TRANSLATIONS: Record<string, Dictionary> = {
     login_logIn: "ലോഗിൻ",
   },
   pa: {
-    nav_home: "ਹੋਮ",
+    nav_home: "ਐਲਾਨ",
     nav_dashboard: "ਡੈਸ਼ਬੋਰਡ",
     nav_billing: "ਬਿਲਿੰਗ",
     nav_invoices: "ਇਨਵੌਇਸ",

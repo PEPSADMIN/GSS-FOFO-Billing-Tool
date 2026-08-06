@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import {
   THEME_PALETTES,
   FONT_SCALES,
@@ -55,6 +56,8 @@ export default function SettingsScreen() {
   const [outletBankName, setOutletBankName] = useState("");
   const [outletBankAccountNo, setOutletBankAccountNo] = useState("");
   const [outletBankIfscCode, setOutletBankIfscCode] = useState("");
+  const [outletLogoBase64, setOutletLogoBase64] = useState("");
+  const [pickingLogo, setPickingLogo] = useState(false);
 
   const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[0-9A-Z]{1}[A-Z]{1}[0-9A-Z]{1}$/;
   const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
@@ -77,10 +80,45 @@ export default function SettingsScreen() {
         setOutletBankName(o.bankName ?? "");
         setOutletBankAccountNo(o.bankAccountNo ?? "");
         setOutletBankIfscCode(o.bankIfscCode ?? "");
+        setOutletLogoBase64(o.logoBase64 ?? "");
       })
       .catch(() => {})
       .finally(() => setLoadingOutlet(false));
   }, [auth]);
+
+  const MAX_LOGO_DATA_URI_LENGTH = 1_400_000;
+
+  async function pickLogo() {
+    if (!isOwner) return;
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      showAlert("Permission needed", "Allow photo library access to choose a business logo.");
+      return;
+    }
+    setPickingLogo(true);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+        base64: true,
+      });
+      if (result.canceled || !result.assets?.[0]?.base64) return;
+      const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      if (dataUri.length > MAX_LOGO_DATA_URI_LENGTH) {
+        showAlert("Image too large", "Kindly choose a smaller or simpler logo image.");
+        return;
+      }
+      setOutletLogoBase64(dataUri);
+    } finally {
+      setPickingLogo(false);
+    }
+  }
+
+  function removeLogo() {
+    setOutletLogoBase64("");
+  }
 
   async function saveOutlet() {
     if (!auth) return;
@@ -117,6 +155,7 @@ export default function SettingsScreen() {
         bankName: outletBankName.trim() || undefined,
         bankAccountNo: outletBankAccountNo.trim() || undefined,
         bankIfscCode: outletBankIfscCode.trim().toUpperCase() || undefined,
+        logoBase64: outletLogoBase64,
       });
       await updateOutlet({ name: updated.name, gstin: updated.gstin, stateCode: updated.stateCode, panCode: updated.panCode });
       showAlert("Saved", "Your business details have been updated.");
@@ -300,6 +339,27 @@ export default function SettingsScreen() {
             <Text style={styles.fieldLabel}>IFSC Code</Text>
             <Input value={outletBankIfscCode} onChangeText={(v) => setOutletBankIfscCode(v.toUpperCase())} editable={isOwner} autoCapitalize="characters" placeholder="HDFC0001234" />
 
+            <Text style={styles.fieldLabel}>Business Logo <Text style={styles.helperText}>(shown on invoice PDFs)</Text></Text>
+            <View style={styles.logoRow}>
+              {outletLogoBase64 ? (
+                <Image source={{ uri: outletLogoBase64 }} style={styles.logoPreview} />
+              ) : (
+                <View style={[styles.logoPreview, styles.logoPlaceholder]}>
+                  <Ionicons name="image-outline" size={22} color={colors.textMuted} />
+                </View>
+              )}
+              {isOwner && (
+                <View style={styles.logoActions}>
+                  <Button label={outletLogoBase64 ? "Change Logo" : "Choose Logo"} variant="secondary" loading={pickingLogo} onPress={pickLogo} />
+                  {outletLogoBase64 ? (
+                    <Pressable onPress={removeLogo} style={styles.removeLogoLink}>
+                      <Text style={styles.removeLogoText}>Remove</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              )}
+            </View>
+
             {isOwner ? (
               <Button label="Save Business Details" variant="secondary" loading={savingOutlet} onPress={saveOutlet} />
             ) : (
@@ -440,6 +500,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   fieldLabel: { fontSize: scaleFont(13), fontWeight: "600", color: colors.text, marginBottom: 2, marginTop: spacing.sm },
+  logoRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.sm },
+  logoPreview: { width: 64, height: 64, borderRadius: radii.md, borderWidth: 1, borderColor: colors.border },
+  logoPlaceholder: { backgroundColor: colors.surfaceAlt, alignItems: "center", justifyContent: "center" },
+  logoActions: { gap: 6 },
+  removeLogoLink: { alignItems: "center", paddingVertical: 2 },
+  removeLogoText: { fontSize: scaleFont(12), color: colors.danger, fontWeight: "600" },
   required: { color: colors.danger },
   mandatoryNote: { fontSize: scaleFont(11), color: colors.textMuted, marginBottom: 4, fontStyle: "italic" },
   swatchRowSmall: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: spacing.sm },

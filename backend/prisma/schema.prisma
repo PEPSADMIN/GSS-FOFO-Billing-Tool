@@ -33,6 +33,7 @@ model Outlet {
   bankName     String?
   bankAccountNo String?
   bankIfscCode  String?
+  logoBase64   String?
   createdAt    DateTime @default(now())
 
   users           User[]

@@ -15,6 +15,7 @@ interface OutletInfo {
   bankName?: string | null;
   bankAccountNo?: string | null;
   bankIfscCode?: string | null;
+  logoBase64?: string | null;
 }
 
 interface LineItemInfo {
@@ -59,14 +60,6 @@ export interface InvoicePdfInput {
   buyerGstin?: string | null;
 }
 
-const COPY_LABELS = [
-  "Original for Buyer",
-  "Duplicate for Transporter",
-  "Triplicate For Assessee",
-  "Extra Copy",
-  "Gate Copy",
-];
-
 const MARGIN = 28;
 const PAGE_W = 595.28;
 const PAGE_H = 841.89;
@@ -93,47 +86,52 @@ function vLine(doc: PDFKit.PDFDocument, x: number, y1: number, y2: number, color
 }
 
 export function generateInvoicePdf(doc: PDFKit.PDFDocument, invoice: InvoicePdfInput): void {
-  for (let copyIdx = 0; copyIdx < COPY_LABELS.length; copyIdx++) {
-    if (copyIdx > 0) doc.addPage();
-    drawCopy(doc, invoice, COPY_LABELS[copyIdx]);
-  }
+  drawCopy(doc, invoice);
 }
 
-function drawCopy(doc: PDFKit.PDFDocument, inv: InvoicePdfInput, copyLabel: string): void {
+function drawCopy(doc: PDFKit.PDFDocument, inv: InvoicePdfInput): void {
   let y = MARGIN;
 
-  // Copy label (top-right, boxed)
-  const lblW = 128;
-  const lblH = 14;
-  const lblX = MARGIN + CW - lblW;
-  doc.rect(lblX, y, lblW, lblH).fill("#dddddd");
-  doc.font("Helvetica-Bold").fontSize(7).fillColor("#000000").text(copyLabel, lblX, y + 3, { width: lblW, align: "center" });
+  // Logo (top-left), if the outlet has uploaded one
+  const LOGO_SIZE = 34;
+  const hasLogo = !!inv.outlet.logoBase64;
+  if (hasLogo) {
+    try {
+      const commaIdx = inv.outlet.logoBase64!.indexOf(",");
+      const logoBuffer = Buffer.from(inv.outlet.logoBase64!.slice(commaIdx + 1), "base64");
+      doc.image(logoBuffer, MARGIN, y, { fit: [LOGO_SIZE, LOGO_SIZE] });
+    } catch {
+      // Malformed logo data — skip drawing it rather than failing the whole PDF
+    }
+  }
+  const textX = hasLogo ? MARGIN + LOGO_SIZE + 6 : MARGIN;
+  const textW = CW - (hasLogo ? LOGO_SIZE + 6 : 0);
 
   // Brand line
-  doc.font("Helvetica-Bold").fontSize(6).fillColor("#000000").text("Peps", MARGIN, y + 2, { width: CW - lblW - 8 });
+  doc.font("Helvetica-Bold").fontSize(6).fillColor("#000000").text("Peps", textX, y + 2, { width: textW });
   y = doc.y + 1;
 
   // Company name
-  doc.font("Helvetica-Bold").fontSize(13).fillColor("#000000").text(inv.outlet.name, MARGIN, y, { width: CW - lblW - 8 });
+  doc.font("Helvetica-Bold").fontSize(13).fillColor("#000000").text(inv.outlet.name, textX, y, { width: textW });
   y = doc.y + 2;
 
   // Warehouse address
   const warehouseAddr = inv.outlet.addressLine + ", " + inv.outlet.city + " - " + inv.outlet.pincode;
-  doc.font("Helvetica").fontSize(7.5).text(warehouseAddr, MARGIN, y, { width: CW - lblW - 8 });
+  doc.font("Helvetica").fontSize(7.5).text(warehouseAddr, textX, y, { width: textW });
   y = doc.y + 1;
 
   if (inv.outlet.regnAddress) {
-    doc.font("Helvetica").fontSize(7).fillColor("#444444").text("Regd. Office & Works: " + inv.outlet.regnAddress, MARGIN, y, { width: CW - lblW - 8 });
+    doc.font("Helvetica").fontSize(7).fillColor("#444444").text("Regd. Office & Works: " + inv.outlet.regnAddress, textX, y, { width: textW });
     doc.fillColor("#000000");
     y = doc.y + 1;
   }
 
   if (inv.outlet.phone) {
-    doc.font("Helvetica").fontSize(7).text("Ph: " + inv.outlet.phone, MARGIN, y, { width: CW - lblW - 8 });
+    doc.font("Helvetica").fontSize(7).text("Ph: " + inv.outlet.phone, textX, y, { width: textW });
     y = doc.y + 2;
   }
 
-  y = Math.max(y, MARGIN + lblH + 4);
+  y = Math.max(y, MARGIN + LOGO_SIZE);
   hRule(doc, MARGIN, y, CW);
   y += 4;
 

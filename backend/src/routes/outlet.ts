@@ -13,6 +13,8 @@ const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 const PINCODE_REGEX = /^[0-9]{6}$/;
 
 const CIN_REGEX = /^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
+const LOGO_DATA_URI_REGEX = /^data:image\/(png|jpeg|jpg);base64,/;
+const MAX_LOGO_LENGTH = 1_400_000; // ~1MB image after base64 inflation
 
 const updateOutletSchema = z.object({
   name: z.string().min(1).optional(),
@@ -27,6 +29,12 @@ const updateOutletSchema = z.object({
   bankName: z.string().optional(),
   bankAccountNo: z.string().optional(),
   bankIfscCode: z.string().optional(),
+  logoBase64: z
+    .string()
+    .max(MAX_LOGO_LENGTH, "Logo image is too large (max ~1MB)")
+    .regex(LOGO_DATA_URI_REGEX, "Logo must be a PNG or JPEG image")
+    .optional()
+    .or(z.literal("")),
 });
 
 outletRouter.get("/", async (req, res, next) => {
@@ -50,6 +58,7 @@ outletRouter.put("/", requireOwner, async (req, res, next) => {
         ...data,
         ...(stateCode ? { stateCode } : {}),
         panCode: data.panCode?.toUpperCase(),
+        ...(data.logoBase64 === "" ? { logoBase64: null } : {}),
       },
     });
     res.json(outlet);

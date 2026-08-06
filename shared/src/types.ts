@@ -131,6 +131,7 @@ export interface OutletDTO {
   bankName?: string | null;
   bankAccountNo?: string | null;
   bankIfscCode?: string | null;
+  logoBase64?: string | null;
 }
 
 export interface UpdateOutletInput {
@@ -146,6 +147,7 @@ export interface UpdateOutletInput {
   bankName?: string;
   bankAccountNo?: string;
   bankIfscCode?: string;
+  logoBase64?: string;
 }
 
 export interface CustomerDTO {

@@ -87,13 +87,11 @@ function DashboardContent({ auth, router }: { auth: ReturnType<typeof useAuth>["
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
-        <View style={styles.filterRow}>
-          {hasDateFilter ? (
+        <View style={[styles.filterRow, !hasDateFilter && styles.filterRowEnd]}>
+          {hasDateFilter && (
             <Text style={styles.activeFilterText}>
               Filtered: {from || "…"} to {to || "…"}
             </Text>
-          ) : (
-            <Text style={styles.activeFilterText}>Showing all-time rankings</Text>
           )}
           <Pressable
             onPress={() => setDateModalVisible(true)}
@@ -415,6 +413,7 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   error: { color: colors.danger },
   filterRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md },
+  filterRowEnd: { justifyContent: "flex-end" },
   activeFilterText: { fontSize: scaleFont(12), color: colors.textMuted },
   calendarButton: {
     width: 36,

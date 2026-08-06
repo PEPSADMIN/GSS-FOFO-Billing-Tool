@@ -296,6 +296,24 @@ export async function migrate(): Promise<void> {
     // Column already exists — fine.
   }
 
+  // One-time cleanup: earlier deploys created owner logins as raw phone numbers
+  // (9999999999, 8888888888) before "user1" / "user2" became the standard. This must run
+  // before the create-if-not-exists checks below, otherwise they'd find no "user1"/"user2"
+  // yet and create a duplicate owner instead of renaming the existing one. Naturally
+  // idempotent — once renamed, the old phone lookup finds nobody and no-ops.
+  const loginRenames: { from: string; to: string }[] = [
+    { from: "9999999999", to: "user1" },
+    { from: "8888888888", to: "user2" },
+  ];
+  for (const r of loginRenames) {
+    const oldUser = await prisma.user.findUnique({ where: { phone: r.from } });
+    const newTaken = await prisma.user.findUnique({ where: { phone: r.to } });
+    if (oldUser && !newTaken) {
+      await prisma.user.update({ where: { id: oldUser.id }, data: { phone: r.to } });
+      console.log(`[migrate] Renamed login ${r.from} -> ${r.to}`);
+    }
+  }
+
   const outletCount = await prisma.outlet.count();
   if (outletCount === 0) {
     console.log("[migrate] Fresh database — seeding initial data...");
@@ -314,17 +332,17 @@ export async function migrate(): Promise<void> {
     });
     const passwordHash = await bcrypt.hash("password123", 10);
     await prisma.user.upsert({
-      where: { phone: "9999999999" },
+      where: { phone: "user1" },
       update: {},
       create: {
         outletId: outlet.id,
         name: "Owner",
-        phone: "9999999999",
+        phone: "user1",
         passwordHash,
         role: "OWNER",
       },
     });
-    console.log(`[migrate] Seeded outlet "${outlet.name}" — login 9999999999 / password123`);
+    console.log(`[migrate] Seeded outlet "${outlet.name}" — login user1 / password123`);
   }
 
   // Always ensure demo accounts exist (idempotent upsert)
@@ -361,13 +379,13 @@ export async function migrate(): Promise<void> {
       phone: "8888800000",
     },
   });
-  const secondOwnerExists = await prisma.user.findUnique({ where: { phone: "8888888888" } });
+  const secondOwnerExists = await prisma.user.findUnique({ where: { phone: "user2" } });
   if (!secondOwnerExists) {
     const hash = await bcrypt.hash("Test@1234", 10);
     await prisma.user.create({
-      data: { outletId: secondOutlet.id, name: "Owner Two", phone: "8888888888", passwordHash: hash, role: "OWNER" },
+      data: { outletId: secondOutlet.id, name: "Owner Two", phone: "user2", passwordHash: hash, role: "OWNER" },
     });
-    console.log("[migrate] Created second test outlet owner — 8888888888 / Test@1234");
+    console.log("[migrate] Created second test outlet owner — user2 / Test@1234");
   }
   const secondOutletItemCount = await prisma.item.count({ where: { outletId: secondOutlet.id } });
   if (secondOutletItemCount === 0) {

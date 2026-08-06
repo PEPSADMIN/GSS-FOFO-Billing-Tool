@@ -99,7 +99,7 @@ function drawCopy(doc: PDFKit.PDFDocument, inv: InvoicePdfInput): void {
     try {
       const commaIdx = inv.outlet.logoBase64!.indexOf(",");
       const logoBuffer = Buffer.from(inv.outlet.logoBase64!.slice(commaIdx + 1), "base64");
-      doc.image(logoBuffer, MARGIN, y, { fit: [LOGO_SIZE, LOGO_SIZE] });
+      doc.image(logoBuffer, MARGIN, y - 4, { fit: [LOGO_SIZE, LOGO_SIZE] });
     } catch {
       // Malformed logo data — skip drawing it rather than failing the whole PDF
     }

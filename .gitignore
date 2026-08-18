@@ -11,6 +11,7 @@ android/
 .DS_Store
 npm-debug.log*
 backend/logs/
+mobile/logs/
 
 # IDE / Claude Code settings
 .claude/

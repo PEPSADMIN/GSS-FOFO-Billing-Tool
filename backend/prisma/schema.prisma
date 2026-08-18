@@ -217,7 +217,11 @@ model Invoice {
   createdByUser   User          @relation("CreatedByUser", fields: [createdByUserId], references: [id])
 
   isInterState Boolean
+  // taxableValue is POST-discount (what GST is actually calculated on). The pre-discount
+  // total can be recovered as taxableValue + discountAmount.
   taxableValue Int
+  discountAmount    Int     @default(0)
+  discountsSnapshot String? // JSON array of { label, percentage, amount } applied at sale time
   cgstAmount   Int           @default(0)
   sgstAmount   Int           @default(0)
   igstAmount   Int           @default(0)

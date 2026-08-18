@@ -3,7 +3,16 @@ import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, StyleSheet, 
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { CustomerAddressDTO, CustomerDTO, ItemDTO, PaymentMode } from "@gss/shared";
-import { calculateLineTax, applyRoundOff, isInterState, rupeesToPaise, PAYMENT_MODES, PAYMENT_MODE_LABELS } from "@gss/shared";
+import {
+  calculateLineTax,
+  applyRoundOff,
+  isInterState,
+  rupeesToPaise,
+  paiseToRupees,
+  PAYMENT_MODES,
+  PAYMENT_MODE_LABELS,
+  MAX_INVOICE_DISCOUNTS,
+} from "@gss/shared";
 import { useAuth } from "../../lib/auth-context";
 import { api, ApiError } from "../../lib/api";
 import { formatMoney } from "../../lib/money";
@@ -14,11 +23,17 @@ import { colors, radii, scaleFont, spacing, typography } from "../../lib/theme";
 interface LineItem {
   item: ItemDTO;
   quantity: number;
+  unitPrice: number; // paise; editable, defaults to item.price
 }
 
 interface PaymentRow {
   mode: PaymentMode;
   amountText: string;
+}
+
+interface DiscountRow {
+  label: string;
+  percentageText: string;
 }
 
 export default function BillingScreen() {
@@ -48,6 +63,9 @@ export default function BillingScreen() {
   const [itemResults, setItemResults] = useState<ItemDTO[]>([]);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [qtyText, setQtyText] = useState<Record<string, string>>({});
+  const [rateText, setRateText] = useState<Record<string, string>>({});
+
+  const [discounts, setDiscounts] = useState<DiscountRow[]>([]);
 
   const [payments, setPayments] = useState<PaymentRow[]>([{ mode: "CASH", amountText: "" }]);
   const [submitting, setSubmitting] = useState(false);
@@ -88,25 +106,37 @@ export default function BillingScreen() {
     [auth, selectedCustomer]
   );
 
+  // Mirrors the backend's calc exactly (routes/invoices.ts): discount % applied proportionally
+  // to each line's taxable value BEFORE that line's GST, so this preview matches what actually
+  // gets saved instead of drifting from it.
+  const totalDiscountPct = useMemo(
+    () => Math.min(100, discounts.reduce((sum, d) => sum + (Number(d.percentageText) || 0), 0)),
+    [discounts]
+  );
+
   const totals = useMemo(() => {
+    let rawTaxableValue = 0;
     let taxableValue = 0;
     let cgst = 0;
     let sgst = 0;
     let igst = 0;
 
     for (const li of lineItems) {
-      const lineTaxable = li.item.price * li.quantity;
+      const rawLineTaxable = li.unitPrice * li.quantity;
+      const lineTaxable = Math.round((rawLineTaxable * (100 - totalDiscountPct)) / 100);
       const tax = calculateLineTax(lineTaxable, li.item.gstRate, interState);
+      rawTaxableValue += rawLineTaxable;
       taxableValue += lineTaxable;
       cgst += tax.cgst;
       sgst += tax.sgst;
       igst += tax.igst;
     }
 
+    const discountAmount = rawTaxableValue - taxableValue;
     const preRoundTotal = taxableValue + cgst + sgst + igst;
     const { grandTotal, roundOff } = applyRoundOff(preRoundTotal);
-    return { taxableValue, cgst, sgst, igst, roundOff, grandTotal };
-  }, [lineItems, interState]);
+    return { taxableValue, discountAmount, cgst, sgst, igst, roundOff, grandTotal };
+  }, [lineItems, interState, totalDiscountPct]);
 
   const amountPaid = useMemo(
     () => payments.reduce((sum, p) => sum + (rupeesToPaise(Number(p.amountText) || 0)), 0),
@@ -126,10 +156,39 @@ export default function BillingScreen() {
         if (isFixedQtyItem(item.name)) return prev;
         return prev.map((li) => (li.item.id === item.id ? { ...li, quantity: li.quantity + 1 } : li));
       }
-      return [...prev, { item, quantity: 1 }];
+      return [...prev, { item, quantity: 1, unitPrice: item.price }];
     });
     setItemQuery("");
     setItemResults([]);
+  }
+
+  function setRateTextFor(itemId: string, text: string) {
+    setRateText((prev) => ({ ...prev, [itemId]: text }));
+    const parsed = rupeesToPaise(Number(text));
+    if (text.trim() && Number.isFinite(parsed) && parsed > 0) {
+      setLineItems((prev) => prev.map((li) => (li.item.id === itemId ? { ...li, unitPrice: parsed } : li)));
+    }
+  }
+
+  function commitRate(itemId: string) {
+    setLineItems((prev) => prev.map((li) => (li.item.id === itemId && li.unitPrice <= 0 ? { ...li, unitPrice: li.item.price } : li)));
+    setRateText((prev) => {
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+  }
+
+  function addDiscount() {
+    setDiscounts((prev) => (prev.length >= MAX_INVOICE_DISCOUNTS ? prev : [...prev, { label: "", percentageText: "" }]));
+  }
+
+  function updateDiscount(index: number, patch: Partial<DiscountRow>) {
+    setDiscounts((prev) => prev.map((d, i) => (i === index ? { ...d, ...patch } : d)));
+  }
+
+  function removeDiscount(index: number) {
+    setDiscounts((prev) => prev.filter((_, i) => i !== index));
   }
 
   function changeQuantity(itemId: string, delta: number) {
@@ -178,6 +237,8 @@ export default function BillingScreen() {
     setSelectedCustomer(null);
     setLineItems([]);
     setQtyText({});
+    setRateText({});
+    setDiscounts([]);
     setPayments([{ mode: "CASH", amountText: "" }]);
     setEwayBillNo("");
     setCinNumber("");
@@ -238,10 +299,13 @@ export default function BillingScreen() {
     try {
       const invoice = await api.invoices.create(auth.token, {
         customerId: selectedCustomer.id,
-        lineItems: lineItems.map((li) => ({ itemId: li.item.id, quantity: li.quantity })),
+        lineItems: lineItems.map((li) => ({ itemId: li.item.id, quantity: li.quantity, unitPrice: li.unitPrice })),
         payments: payments
           .filter((p) => Number(p.amountText) > 0)
           .map((p) => ({ mode: p.mode, amount: rupeesToPaise(Number(p.amountText)) })),
+        discounts: discounts
+          .filter((d) => d.label.trim() && Number(d.percentageText) > 0)
+          .map((d) => ({ label: d.label.trim(), percentage: Number(d.percentageText) })),
         billToAddressId: billToAddressId ?? undefined,
         ewayBillNo: ewayBillNo.trim() || undefined,
         cinNumber: cinNumber.trim() || undefined,
@@ -338,38 +402,81 @@ export default function BillingScreen() {
 
       {lineItems.map((li) => (
         <View key={li.item.id} style={styles.lineItemRow}>
-          <View style={{ flex: 1 }}>
+          <View style={styles.lineItemTopRow}>
             <Text style={styles.lineItemName}>{li.item.name}</Text>
-            <Text style={styles.lineItemMeta}>
-              {formatMoney(li.item.price)} × {li.quantity} · GST {li.item.gstRate}%
-            </Text>
+            <Text style={styles.lineItemMeta}>GST {li.item.gstRate}%</Text>
           </View>
-          {isFixedQtyItem(li.item.name) ? (
-            <Text style={styles.fixedQtyText}>Qty 1</Text>
-          ) : (
-            <>
-              <Pressable style={styles.qtyButton} onPress={() => changeQuantity(li.item.id, -1)}>
-                <Text style={styles.qtyButtonText}>−</Text>
-              </Pressable>
-              <Input
-                style={styles.qtyInput}
-                keyboardType="number-pad"
-                value={qtyText[li.item.id] ?? String(li.quantity)}
-                onChangeText={(text) => setQuantityText(li.item.id, text)}
-                onBlur={() => commitQuantity(li.item.id)}
-                selectTextOnFocus
-              />
-              <Pressable style={styles.qtyButton} onPress={() => changeQuantity(li.item.id, 1)}>
-                <Text style={styles.qtyButtonText}>+</Text>
-              </Pressable>
-            </>
-          )}
+          <View style={styles.lineItemBottomRow}>
+            <Text style={styles.rateLabel}>Rate</Text>
+            <Input
+              style={styles.rateInput}
+              keyboardType="decimal-pad"
+              value={rateText[li.item.id] ?? String(paiseToRupees(li.unitPrice))}
+              onChangeText={(text) => setRateTextFor(li.item.id, text)}
+              onBlur={() => commitRate(li.item.id)}
+              selectTextOnFocus
+            />
+            {isFixedQtyItem(li.item.name) ? (
+              <Text style={styles.fixedQtyText}>Qty 1</Text>
+            ) : (
+              <>
+                <Pressable style={styles.qtyButton} onPress={() => changeQuantity(li.item.id, -1)}>
+                  <Text style={styles.qtyButtonText}>−</Text>
+                </Pressable>
+                <Input
+                  style={styles.qtyInput}
+                  keyboardType="number-pad"
+                  value={qtyText[li.item.id] ?? String(li.quantity)}
+                  onChangeText={(text) => setQuantityText(li.item.id, text)}
+                  onBlur={() => commitQuantity(li.item.id)}
+                  selectTextOnFocus
+                />
+                <Pressable style={styles.qtyButton} onPress={() => changeQuantity(li.item.id, 1)}>
+                  <Text style={styles.qtyButtonText}>+</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
         </View>
       ))}
 
       {lineItems.length > 0 && (
+        <>
+          <View style={styles.discountsHeaderRow}>
+            <Text style={styles.sectionTitle}>Discounts (optional)</Text>
+            {discounts.length < MAX_INVOICE_DISCOUNTS && (
+              <Pressable onPress={addDiscount}>
+                <Text style={styles.clearLink}>+ Add Discount</Text>
+              </Pressable>
+            )}
+          </View>
+          {discounts.map((d, index) => (
+            <View key={index} style={styles.discountRow}>
+              <Input
+                style={styles.discountLabelInput}
+                placeholder="e.g. Festival Offer"
+                value={d.label}
+                onChangeText={(text) => updateDiscount(index, { label: text })}
+              />
+              <Input
+                style={styles.discountPctInput}
+                placeholder="%"
+                keyboardType="decimal-pad"
+                value={d.percentageText}
+                onChangeText={(text) => updateDiscount(index, { percentageText: text })}
+              />
+              <Pressable onPress={() => removeDiscount(index)} hitSlop={8}>
+                <Ionicons name="close-circle" size={22} color={colors.danger} />
+              </Pressable>
+            </View>
+          ))}
+        </>
+      )}
+
+      {lineItems.length > 0 && (
         <View style={styles.totalsBox}>
           <TotalsLine label="Taxable value" value={totals.taxableValue} />
+          {totals.discountAmount > 0 && <TotalsLine label="Discount" value={-totals.discountAmount} />}
           {interState ? (
             <TotalsLine label="IGST" value={totals.igst} />
           ) : (
@@ -587,6 +694,10 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: 48 },
   sectionTitle: { ...typography.heading, marginTop: spacing.xl, marginBottom: spacing.sm },
+  discountsHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  discountRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.sm },
+  discountLabelInput: { flex: 1, marginBottom: 0 },
+  discountPctInput: { width: 64, marginBottom: 0 },
   requiredAsterisk: { color: colors.danger },
   resultRow: {
     flexDirection: "row",
@@ -649,15 +760,17 @@ const styles = StyleSheet.create({
   selectedText: { fontSize: scaleFont(15), color: colors.text },
   clearLink: { color: colors.accent, fontWeight: "600" },
   lineItemRow: {
-    flexDirection: "row",
-    alignItems: "center",
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    gap: spacing.sm,
+    gap: 6,
   },
+  lineItemTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  lineItemBottomRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   lineItemName: { fontSize: scaleFont(15), fontWeight: "600", color: colors.text },
   lineItemMeta: { fontSize: scaleFont(13), color: colors.textMuted },
+  rateLabel: { fontSize: scaleFont(12), color: colors.textMuted },
+  rateInput: { width: 76, marginBottom: 0, marginRight: "auto" },
   qtyButton: {
     width: 28,
     height: 28,

@@ -189,6 +189,7 @@ export interface ItemDTO {
 export interface InvoiceLineItemInput {
   itemId: string;
   quantity: number;
+  unitPrice?: number; // paise; omit to use the item master's current price
 }
 
 export interface PaymentInput {
@@ -196,10 +197,24 @@ export interface PaymentInput {
   amount: number; // paise
 }
 
+export const MAX_INVOICE_DISCOUNTS = 5;
+
+export interface DiscountInput {
+  label: string;
+  percentage: number; // 0-100
+}
+
+export interface DiscountDTO {
+  label: string;
+  percentage: number;
+  amount: number; // paise, this discount's share of the total discount
+}
+
 export interface CreateInvoiceInput {
   customerId: string;
   lineItems: InvoiceLineItemInput[];
   payments: PaymentInput[];
+  discounts?: DiscountInput[];
   billToAddressId?: string;
   ewayBillNo?: string;
   cinNumber?: string;
@@ -307,6 +322,8 @@ export interface InvoiceDTO {
   customer?: CustomerDTO | null;
   isInterState: boolean;
   taxableValue: number;
+  discountAmount: number;
+  discounts: DiscountDTO[];
   cgstAmount: number;
   sgstAmount: number;
   igstAmount: number;

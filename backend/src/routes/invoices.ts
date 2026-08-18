@@ -4,8 +4,8 @@ import ExcelJS from "exceljs";
 import { prisma } from "../prisma";
 import { requireAuth } from "../middleware/auth";
 import { HttpError } from "../middleware/errorHandler";
-import { calculateLineTax, applyRoundOff, isInterState, paiseToRupees, PAYMENT_MODES, PAYMENT_MODE_LABELS } from "@gss/shared";
-import type { InstallmentStatus } from "@gss/shared";
+import { calculateLineTax, applyRoundOff, isInterState, paiseToRupees, PAYMENT_MODES, PAYMENT_MODE_LABELS, MAX_INVOICE_DISCOUNTS } from "@gss/shared";
+import type { InstallmentStatus, DiscountDTO } from "@gss/shared";
 import { getNextInvoiceNumber } from "../lib/invoiceNumber";
 import { parsePagination } from "../lib/pagination";
 import { generateInvoicePdf } from "../lib/invoicePdf";
@@ -37,6 +37,15 @@ function toInstallmentDTO(inst: {
   };
 }
 
+function toDiscountsDTO(discountsSnapshot: string | null): DiscountDTO[] {
+  if (!discountsSnapshot) return [];
+  try {
+    return JSON.parse(discountsSnapshot) as DiscountDTO[];
+  } catch {
+    return [];
+  }
+}
+
 function buildInvoiceWhere(outletId: string, query: Record<string, unknown>) {
   const { from, to, status } = query as { from?: string; to?: string; status?: string };
   return {
@@ -63,6 +72,7 @@ const createInvoiceSchema = z.object({
       z.object({
         itemId: z.string(),
         quantity: z.number().int().positive(),
+        unitPrice: z.number().int().positive().optional(),
       })
     )
     .min(1),
@@ -73,6 +83,15 @@ const createInvoiceSchema = z.object({
         amount: z.number().int().min(0),
       })
     )
+    .default([]),
+  discounts: z
+    .array(
+      z.object({
+        label: z.string().trim().min(1).max(40),
+        percentage: z.number().min(0).max(100),
+      })
+    )
+    .max(MAX_INVOICE_DISCOUNTS)
     .default([]),
   billToAddressId: z.string().optional(),
   ewayBillNo: z.string().max(20).optional(),
@@ -133,6 +152,19 @@ invoicesRouter.post("/", async (req, res, next) => {
         }
       }
 
+      // Discount percentages are applied proportionally to each line's taxable value BEFORE
+      // that line's GST is computed, so per-HSN GST breakup on the invoice stays correct
+      // (rather than a flat discount subtracted from the final total, which would decouple
+      // the printed GST amounts from the discounted base).
+      const totalDiscountPct = Math.min(
+        100,
+        input.discounts.reduce((sum, d) => sum + d.percentage, 0)
+      );
+      const rawTaxableValueTotal = input.lineItems.reduce((sum, li) => {
+        const item = itemsById.get(li.itemId)!;
+        return sum + (li.unitPrice ?? item.price) * li.quantity;
+      }, 0);
+
       let taxableValueTotal = 0;
       let cgstTotal = 0;
       let sgstTotal = 0;
@@ -140,7 +172,9 @@ invoicesRouter.post("/", async (req, res, next) => {
 
       const lineItemsData = input.lineItems.map((li) => {
         const item = itemsById.get(li.itemId)!;
-        const taxableValue = item.price * li.quantity;
+        const unitPrice = li.unitPrice ?? item.price;
+        const rawTaxableValue = unitPrice * li.quantity;
+        const taxableValue = Math.round((rawTaxableValue * (100 - totalDiscountPct)) / 100);
         const tax = calculateLineTax(taxableValue, item.gstRate, interState);
         const lineTotal = taxableValue + tax.cgst + tax.sgst + tax.igst;
 
@@ -155,7 +189,7 @@ invoicesRouter.post("/", async (req, res, next) => {
           hsnCode: item.hsnCode,
           unit: item.unit,
           quantity: li.quantity,
-          unitPrice: item.price,
+          unitPrice,
           gstRate: item.gstRate,
           taxableValue,
           cgstAmount: tax.cgst,
@@ -164,6 +198,14 @@ invoicesRouter.post("/", async (req, res, next) => {
           lineTotal,
         };
       });
+
+      const discountAmount = rawTaxableValueTotal - taxableValueTotal;
+      const discounts: DiscountDTO[] = input.discounts.map((d) => ({
+        label: d.label,
+        percentage: d.percentage,
+        amount: Math.round((rawTaxableValueTotal * d.percentage) / 100),
+      }));
+      const discountsSnapshot = discounts.length > 0 ? JSON.stringify(discounts) : null;
 
       const preRoundTotal = taxableValueTotal + cgstTotal + sgstTotal + igstTotal;
       const { grandTotal, roundOff } = applyRoundOff(preRoundTotal);
@@ -186,6 +228,8 @@ invoicesRouter.post("/", async (req, res, next) => {
           createdByUserId: userId,
           isInterState: interState,
           taxableValue: taxableValueTotal,
+          discountAmount,
+          discountsSnapshot,
           cgstAmount: cgstTotal,
           sgstAmount: sgstTotal,
           igstAmount: igstTotal,
@@ -241,7 +285,7 @@ invoicesRouter.post("/", async (req, res, next) => {
       summary: `Created invoice ${result.invoiceNumber} for ${result.customer?.name ?? "a walk-in customer"} (${(result.grandTotal / 100).toFixed(2)})`,
     });
 
-    res.status(201).json({ ...result, installments: result.installments.map(toInstallmentDTO) });
+    res.status(201).json({ ...result, discounts: toDiscountsDTO(result.discountsSnapshot), installments: result.installments.map(toInstallmentDTO) });
   } catch (err) {
     next(err);
   }
@@ -354,7 +398,7 @@ invoicesRouter.get("/:id", async (req, res, next) => {
       include: { lineItems: true, payments: true, customer: true, installments: { orderBy: { dueDate: "asc" } } },
     });
     if (!invoice) throw new HttpError(404, "Invoice not found");
-    res.json({ ...invoice, installments: invoice.installments.map(toInstallmentDTO) });
+    res.json({ ...invoice, discounts: toDiscountsDTO(invoice.discountsSnapshot), installments: invoice.installments.map(toInstallmentDTO) });
   } catch (err) {
     next(err);
   }
@@ -400,7 +444,7 @@ invoicesRouter.patch("/:id/docs", async (req, res, next) => {
       },
       include: { lineItems: true, payments: true, customer: true, installments: { orderBy: { dueDate: "asc" } } },
     });
-    res.json({ ...invoice, installments: invoice.installments.map(toInstallmentDTO) });
+    res.json({ ...invoice, discounts: toDiscountsDTO(invoice.discountsSnapshot), installments: invoice.installments.map(toInstallmentDTO) });
   } catch (err) {
     next(err);
   }
@@ -429,6 +473,8 @@ invoicesRouter.get("/:id/pdf", async (req, res, next) => {
       createdAt: invoice.createdAt,
       isInterState: invoice.isInterState,
       taxableValue: invoice.taxableValue,
+      discountAmount: invoice.discountAmount,
+      discounts: toDiscountsDTO(invoice.discountsSnapshot),
       cgstAmount: invoice.cgstAmount,
       sgstAmount: invoice.sgstAmount,
       igstAmount: invoice.igstAmount,
@@ -491,7 +537,7 @@ invoicesRouter.post("/:id/payments", async (req, res, next) => {
       });
     });
 
-    res.json({ ...result, installments: result.installments.map(toInstallmentDTO) });
+    res.json({ ...result, discounts: toDiscountsDTO(result.discountsSnapshot), installments: result.installments.map(toInstallmentDTO) });
   } catch (err) {
     next(err);
   }
@@ -605,7 +651,7 @@ invoicesRouter.post("/:id/installments/:installmentId/pay", async (req, res, nex
       });
     });
 
-    res.json({ ...result, installments: result.installments.map(toInstallmentDTO) });
+    res.json({ ...result, discounts: toDiscountsDTO(result.discountsSnapshot), installments: result.installments.map(toInstallmentDTO) });
   } catch (err) {
     next(err);
   }

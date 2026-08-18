@@ -37,6 +37,8 @@ export interface InvoicePdfInput {
   createdAt: Date;
   isInterState: boolean;
   taxableValue: number;
+  discountAmount?: number;
+  discounts?: { label: string; percentage: number; amount: number }[];
   cgstAmount: number;
   sgstAmount: number;
   igstAmount: number;
@@ -439,6 +441,13 @@ function drawTotals(doc: PDFKit.PDFDocument, inv: InvoicePdfInput, startY: numbe
   }
 
   var breakdown: [string, string][] = [];
+  if (inv.discountAmount && inv.discountAmount > 0) {
+    var discountLabel = "Discount";
+    if (inv.discounts && inv.discounts.length > 0) {
+      discountLabel += " (" + inv.discounts.map((d) => d.label + " " + d.percentage + "%").join(" + ") + ")";
+    }
+    breakdown.push([discountLabel, "-" + fmt(inv.discountAmount)]);
+  }
   if (inv.isInterState) {
     var rate = inv.lineItems.length > 0 ? inv.lineItems[0].gstRate : 18;
     breakdown.push(["IGST @ " + rate + "%", fmt(inv.igstAmount)]);

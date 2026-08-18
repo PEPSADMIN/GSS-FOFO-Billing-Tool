@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import cors from "cors";
 import { authRouter } from "./routes/auth";
 import { customersRouter } from "./routes/customers";
 import { itemsRouter } from "./routes/items";
@@ -20,6 +21,12 @@ export const app = express();
 
 // Trust Railway's / Vercel's proxy so req.ip is correct for rate-limiting
 app.set("trust proxy", 1);
+
+// Auth is Bearer-token based (no cookies), so there's no ambient credential for a
+// permissive CORS policy to expose. Needed for LAN/local dev where the web app and
+// API run on different ports/origins; production doesn't hit this because Vercel
+// proxies /api/* same-origin to Railway.
+app.use(cors());
 
 app.use(express.json({ limit: "3mb" }));
 

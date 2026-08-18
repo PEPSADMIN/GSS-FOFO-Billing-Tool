@@ -488,12 +488,15 @@ function drawTotals(doc: PDFKit.PDFDocument, inv: InvoicePdfInput, startY: numbe
 function drawSignatureBlock(doc: PDFKit.PDFDocument, outletName: string, startY: number): void {
   var available = PAGE_H - MARGIN - startY;
   var y = startY;
-  if (available < 55) {
+  if (available < 61) {
     doc.addPage();
     y = MARGIN;
   }
 
-  var sigH = 42;
+  // "Received Goods in Good / Condition" (col 0) and "<outlet name> / Authorized Signatory"
+  // (col 3) both wrap to 2 lines at this font size -- sigH and the divider/caption below
+  // must clear that, or they collide with the label's second line.
+  var sigH = 48;
   var cols4 = CW / 4;
   var labels = [
     "Received Goods in Good\nCondition",
@@ -514,8 +517,8 @@ function drawSignatureBlock(doc: PDFKit.PDFDocument, outletName: string, startY:
     doc.font("Helvetica").fontSize(7).fillColor("#000000").text(labels[i], cx + 3, y + 4, { width: cols4 - 6, align: "center" });
   }
 
-  hRule(doc, MARGIN, y + 14, CW, "#cccccc");
-  doc.font("Helvetica-Oblique").fontSize(6.5).fillColor("#555555").text("Signature With Seal", MARGIN + 3, y + 16, { width: cols4 - 6, align: "center" });
+  hRule(doc, MARGIN, y + 24, CW, "#cccccc");
+  doc.font("Helvetica-Oblique").fontSize(6.5).fillColor("#555555").text("Signature With Seal", MARGIN + 3, y + 27, { width: cols4 - 6, align: "center" });
   doc.fillColor("#000000");
 
   hRule(doc, MARGIN, y + sigH, CW, "#888888");

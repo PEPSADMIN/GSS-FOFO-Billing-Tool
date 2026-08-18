@@ -36,8 +36,7 @@ export default function LoginScreen() {
 
         <View style={styles.card}>
           <Input
-            placeholder="Phone number"
-            keyboardType="phone-pad"
+            placeholder="Username / Phone number"
             autoCapitalize="none"
             value={phone}
             onChangeText={setPhone}

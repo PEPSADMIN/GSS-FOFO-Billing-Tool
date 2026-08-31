@@ -1,5 +1,5 @@
 import { ComponentProps, ReactNode, useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { CustomerAddressDTO, CustomerDTO, CustomerItemDTO, CreateCustomerAddressInput, InvoiceDTO, ItemDTO } from "@gss/shared";
 import { paiseToRupees, rupeesToPaise } from "@gss/shared";
@@ -8,7 +8,7 @@ import { api, ApiError, CustomerInput } from "../../lib/api";
 import { formatMoney } from "../../lib/money";
 import { downloadFile } from "../../lib/download";
 import { showAlert, showConfirm } from "../../lib/alert";
-import { Button, Input, ModalHeader, Screen, SectionHeader } from "../../components/ui";
+import { AppRefreshControl, Button, Input, ModalHeader, Screen, SectionHeader } from "../../components/ui";
 import { DateField } from "../../components/DateField";
 import { DateRangeModal } from "../../components/DateRangeModal";
 import { colors, radii, scaleFont, spacing, typography } from "../../lib/theme";
@@ -191,7 +191,7 @@ export default function CustomersScreen() {
       <FlatList
         data={customers}
         keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} tintColor={colors.accent} />}
+        refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={load} />}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={<Text style={styles.empty}>No customers found</Text>}
         onEndReached={loadMore}
@@ -446,7 +446,7 @@ function CustomerFormModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView style={styles.modalCard} keyboardShouldPersistTaps="handled">
           <ModalHeader title={title} onClose={onClose} />
 
@@ -572,7 +572,7 @@ function CustomerFormModal({
             />
           </View>
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -786,7 +786,7 @@ function CustomerDetailModal({
 
   return (
     <Modal visible={!!customer} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={styles.modalCard}>
           <ModalHeader title={customer?.name ?? ""} onClose={onClose} />
 
@@ -944,7 +944,7 @@ function CustomerDetailModal({
             <Text style={styles.cancelLink}>Close</Text>
           </Pressable>
         </View>
-      </View>
+      </KeyboardAvoidingView>
 
       {customer ? (
         <LinkItemPickerModal
@@ -1053,7 +1053,7 @@ function AddressFormModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView style={styles.modalCard} keyboardShouldPersistTaps="handled">
           <ModalHeader title={address ? "Edit address" : "Add address"} onClose={onClose} />
 
@@ -1110,7 +1110,7 @@ function AddressFormModal({
             <Button label="Save" variant="secondary" loading={submitting} onPress={submit} style={styles.saveButton} />
           </View>
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -1154,7 +1154,7 @@ function LinkItemPickerModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={styles.modalCard}>
           <ModalHeader title="Link an item" onClose={onClose} />
           {selected ? (
@@ -1196,7 +1196,7 @@ function LinkItemPickerModal({
             <Text style={styles.cancelLink}>Close</Text>
           </Pressable>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

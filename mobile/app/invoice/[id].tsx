@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import type { DispatchDTO, InvoiceDTO, PaymentMode } from "@gss/shared";
 import { PAYMENT_MODE_LABELS, PAYMENT_MODES, rupeesToPaise, paiseToRupees } from "@gss/shared";
@@ -141,6 +141,7 @@ export default function InvoiceDetailScreen() {
 
   return (
     <Screen>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.headerRow}>
         <View>
@@ -316,8 +317,8 @@ export default function InvoiceDetailScreen() {
           <Button label="Record Payment" variant="secondary" loading={recording} onPress={recordPayment} />
         </View>
       )}
-
     </ScrollView>
+    </KeyboardAvoidingView>
     </Screen>
   );
 }

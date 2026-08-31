@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import {
@@ -277,6 +277,7 @@ export default function SettingsScreen() {
 
   return (
     <Screen style={styles.container}>
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={styles.content}>
         <SectionHeader label="Business Details" icon="business-outline" />
         {loadingOutlet ? (
@@ -470,6 +471,7 @@ export default function SettingsScreen() {
         />
         <Button label={t("settings_saveChanges")} variant="secondary" loading={changingPassword} onPress={submitPasswordChange} />
       </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

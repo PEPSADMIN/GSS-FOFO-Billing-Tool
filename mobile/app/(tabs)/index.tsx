@@ -1,5 +1,5 @@
 import { ReactNode, useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle, G, Path } from "react-native-svg";
@@ -7,7 +7,7 @@ import type { DashboardDTO, InvoiceStatus } from "@gss/shared";
 import { useAuth } from "../../lib/auth-context";
 import { api, ApiError } from "../../lib/api";
 import { formatMoney } from "../../lib/money";
-import { Card, Screen, SectionHeader } from "../../components/ui";
+import { AppRefreshControl, Card, Screen, SectionHeader } from "../../components/ui";
 import { DateRangeModal } from "../../components/DateRangeModal";
 import { SuperAdminDashboard } from "../../components/SuperAdminDashboard";
 import { colors, radii, scaleFont, spacing } from "../../lib/theme";
@@ -90,7 +90,7 @@ function DashboardContent({ auth, router }: { auth: ReturnType<typeof useAuth>["
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+        refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={[styles.filterRow, !hasDateFilter && styles.filterRowEnd]}>
           {hasDateFilter && (

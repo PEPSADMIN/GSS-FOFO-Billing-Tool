@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { OutletSalesSummaryDTO } from "@gss/shared";
 import { useAuth } from "../lib/auth-context";
 import { api, ApiError } from "../lib/api";
 import { formatMoney } from "../lib/money";
-import { Card, Screen, SectionHeader } from "./ui";
+import { AppRefreshControl, Card, Screen, SectionHeader } from "./ui";
 import { colors, radii, scaleFont, spacing } from "../lib/theme";
 
 export function SuperAdminDashboard() {
@@ -51,7 +51,7 @@ export function SuperAdminDashboard() {
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+        refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <SectionHeader label="Shops by Monthly Sales" icon="podium-outline" />
         {data.length === 0 ? (

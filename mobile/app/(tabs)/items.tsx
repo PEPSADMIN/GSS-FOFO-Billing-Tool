@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { ItemDTO } from "@gss/shared";
@@ -7,7 +7,7 @@ import { rupeesToPaise, paiseToRupees, GST_SLABS } from "@gss/shared";
 import { useAuth } from "../../lib/auth-context";
 import { api, ApiError, ItemInput, StockAdjustmentInput } from "../../lib/api";
 import { formatMoney } from "../../lib/money";
-import { Button, Input, ModalHeader, Screen } from "../../components/ui";
+import { AppRefreshControl, Button, Input, ModalHeader, Screen } from "../../components/ui";
 import { showAlert, showConfirm } from "../../lib/alert";
 import { colors, radii, scaleFont, spacing, typography } from "../../lib/theme";
 
@@ -177,7 +177,7 @@ export default function ItemsScreen() {
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} tintColor={colors.accent} />}
+        refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={load} />}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={<Text style={styles.empty}>No items found</Text>}
         onEndReached={loadMore}
@@ -325,7 +325,7 @@ function ItemFormModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView style={styles.modalCard} keyboardShouldPersistTaps="handled">
         <ModalHeader title={title} onClose={onClose} />
 
@@ -458,7 +458,7 @@ function ItemFormModal({
 
         {itemId && <StockAdjustmentSection itemId={itemId} onAdjusted={onSaved} />}
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

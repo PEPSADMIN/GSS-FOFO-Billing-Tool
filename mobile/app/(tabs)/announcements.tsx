@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import type { AnnouncementCategory, AnnouncementDTO } from "@gss/shared";
 import { ANNOUNCEMENT_CATEGORIES, ANNOUNCEMENT_CATEGORY_LABELS } from "@gss/shared";
 import { useAuth } from "../../lib/auth-context";
 import { api, ApiError } from "../../lib/api";
-import { Badge, Button, Input, ModalHeader, Screen, SectionHeader } from "../../components/ui";
+import { AppRefreshControl, Badge, Button, Input, ModalHeader, Screen, SectionHeader } from "../../components/ui";
 import { showAlert, showConfirm } from "../../lib/alert";
 import { colors, radii, scaleFont, spacing } from "../../lib/theme";
 
@@ -79,7 +79,7 @@ export default function AnnouncementsScreen() {
         <FlatList
           data={announcements}
           keyExtractor={(a) => a.id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+          refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <Text style={styles.empty}>No announcements yet — post price changes, discounts, or MRP updates here.</Text>
@@ -158,7 +158,7 @@ function AnnouncementFormModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={styles.modalCard}>
           <ModalHeader title="New announcement" onClose={onClose} />
 
@@ -191,7 +191,7 @@ function AnnouncementFormModal({
             <Button label="Post" loading={submitting} onPress={submit} style={styles.saveButton} />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

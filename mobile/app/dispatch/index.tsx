@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import type { DispatchDTO, DispatchStatus } from "@gss/shared";
 import { useAuth } from "../../lib/auth-context";
 import { api } from "../../lib/api";
-import { Badge, Screen } from "../../components/ui";
+import { AppRefreshControl, Badge, Screen } from "../../components/ui";
 import { colors, radii, scaleFont, spacing } from "../../lib/theme";
 
 const STATUS_FILTERS: (DispatchStatus | "ALL")[] = ["ALL", "PENDING", "DISPATCHED", "DELIVERED"];
@@ -51,7 +51,7 @@ export default function DispatchListScreen() {
       <FlatList
         data={dispatches}
         keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} tintColor={colors.accent} />}
+        refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={load} />}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={<Text style={styles.empty}>No dispatches found</Text>}
         renderItem={({ item }) => (

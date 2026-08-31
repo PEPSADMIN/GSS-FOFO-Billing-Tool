@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { TAB_KEYS, type AuditLogEntryDTO, type Role, type RoleDTO, type TabKey, type UserDTO } from "@gss/shared";
 import { useAuth } from "../../lib/auth-context";
 import { api, ApiError } from "../../lib/api";
-import { Badge, Button, Input, ModalHeader, Screen } from "../../components/ui";
+import { AppRefreshControl, Badge, Button, Input, ModalHeader, Screen } from "../../components/ui";
 import { showAlert } from "../../lib/alert";
 import { colors, radii, scaleFont, spacing, typography } from "../../lib/theme";
 
@@ -71,7 +71,7 @@ export default function AdminScreen() {
         <FlatList
           data={users}
           keyExtractor={(u) => u.id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} tintColor={colors.accent} />}
+          refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={load} />}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
             <Button label="+ Create user" onPress={() => setAddUserVisible(true)} style={{ marginBottom: spacing.md }} />
@@ -93,7 +93,7 @@ export default function AdminScreen() {
         <FlatList
           data={roles}
           keyExtractor={(r) => r.id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} tintColor={colors.accent} />}
+          refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={load} />}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
             <Button label="+ Create role" onPress={() => setAddRoleVisible(true)} style={{ marginBottom: spacing.md }} />
@@ -183,7 +183,7 @@ function AuditLogTab() {
         data={entries}
         keyExtractor={(e) => e.id}
         contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={() => {}} tintColor={colors.accent} />}
+        refreshControl={<AppRefreshControl refreshing={loading} onRefresh={() => {}} />}
         ListEmptyComponent={<Text style={styles.empty}>No activity recorded yet</Text>}
         renderItem={({ item }) => (
           <View style={styles.row}>
@@ -253,8 +253,8 @@ function CreateRoleModal({ visible, onClose, onCreated }: { visible: boolean; on
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
-        <ScrollView style={styles.modalCard}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView style={styles.modalCard} keyboardShouldPersistTaps="handled">
           <ModalHeader title="Create custom role" onClose={onClose} />
           <Input placeholder="Role name (e.g. Inventory Manager)" value={name} onChangeText={setName} />
           <Text style={styles.label}>Tabs this role can access</Text>
@@ -267,7 +267,7 @@ function CreateRoleModal({ visible, onClose, onCreated }: { visible: boolean; on
             <Button label="Create" loading={submitting} onPress={submit} style={styles.saveButton} />
           </View>
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -330,8 +330,8 @@ function CreateUserModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
-        <ScrollView style={styles.modalCard}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView style={styles.modalCard} keyboardShouldPersistTaps="handled">
           <ModalHeader title="Create user" onClose={onClose} />
           <Input placeholder="Name *" value={name} onChangeText={setName} />
           <Input placeholder="Phone *" keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
@@ -374,7 +374,7 @@ function CreateUserModal({
             <Button label="Create" loading={submitting} onPress={submit} style={styles.saveButton} />
           </View>
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -436,8 +436,8 @@ function EditUserModal({
 
   return (
     <Modal visible animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
-        <ScrollView style={styles.modalCard}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView style={styles.modalCard} keyboardShouldPersistTaps="handled">
           <ModalHeader title={user.name} onClose={onClose} />
           <Text style={styles.meta}>{user.phone}</Text>
 
@@ -495,7 +495,7 @@ function EditUserModal({
             <Button label="Save" loading={submitting} onPress={submit} style={styles.saveButton} />
           </View>
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

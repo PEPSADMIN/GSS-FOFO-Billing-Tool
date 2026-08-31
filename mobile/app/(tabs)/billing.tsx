@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { CustomerAddressDTO, CustomerDTO, ItemDTO, PaymentMode } from "@gss/shared";
@@ -330,6 +330,7 @@ export default function BillingScreen() {
 
   return (
     <Screen>
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.sectionTitle}>
         Customer <Text style={styles.requiredAsterisk}>*</Text>
@@ -558,6 +559,7 @@ export default function BillingScreen() {
 
       <Button label="Create invoice" loading={submitting} onPress={submitInvoice} />
       </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

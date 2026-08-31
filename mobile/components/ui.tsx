@@ -1,9 +1,10 @@
-import { ReactNode, useState } from "react";
+import { ComponentProps, ReactNode, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
   Pressable,
   PressableProps,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -20,6 +21,14 @@ export function Screen({ children, style, ...rest }: ViewProps & { children: Rea
     <View style={[styles.screen, style]} {...rest}>
       {children}
     </View>
+  );
+}
+
+// Android's pull-to-refresh spinner ignores `tintColor` (iOS-only) and needs `colors` + a
+// background to render in the app's accent color — without it the spinner is default grey.
+export function AppRefreshControl(props: ComponentProps<typeof RefreshControl>) {
+  return (
+    <RefreshControl {...props} tintColor={colors.accent} colors={[colors.accent]} progressBackgroundColor={colors.surface} />
   );
 }
 
@@ -102,6 +111,7 @@ interface InputProps extends TextInputProps {
 
 export function Input({ icon, error, onFocus, onBlur, style, ...rest }: InputProps) {
   const [focused, setFocused] = useState(false);
+  const multiline = !!rest.multiline;
   return (
     <View style={[styles.inputWrap, style]}>
       {icon ? (
@@ -111,6 +121,7 @@ export function Input({ icon, error, onFocus, onBlur, style, ...rest }: InputPro
         placeholderTextColor={colors.textMuted}
         style={[
           styles.input,
+          multiline ? styles.inputMultiline : null,
           icon ? styles.inputWithIcon : null,
           error ? styles.inputErrorBorder : null,
           focused ? styles.inputFocused : null,
@@ -213,6 +224,9 @@ const styles = StyleSheet.create({
     color: colors.onPrimary,
     fontSize: scaleFont(15),
     fontWeight: "700",
+    // Android adds extra font-metric padding that pushes button labels off-centre relative to
+    // iOS; disabling it (a no-op on iOS) keeps the label visually centred in both.
+    includeFontPadding: false,
   },
   disabled: {
     opacity: 0.45,
@@ -226,13 +240,26 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surfaceAlt,
     borderRadius: radii.md,
+    minHeight: 48,
     paddingHorizontal: 14,
-    paddingVertical: 12,
     fontSize: scaleFont(15),
     color: colors.text,
+    // Android pads text with extra font-metric whitespace by default, which grows the field and
+    // shifts the caret/text off-centre relative to iOS. includeFontPadding + explicit centering
+    // makes a single-line field render identically to iOS (a no-op on iOS). minHeight (instead of
+    // a fixed height) lets a `multiline` field keep its natural content height.
+    includeFontPadding: false,
+    textAlignVertical: "center",
     // Suppresses the browser's native focus ring on web so the custom `inputFocused` glow below
     // is the only focus indicator shown.
     outlineWidth: 0,
+  },
+  inputMultiline: {
+    // Multiline text should grow with content and hug its top edge rather than staying vertically
+    // centred inside a fixed-height box.
+    minHeight: 90,
+    paddingVertical: 12,
+    textAlignVertical: "top",
   },
   inputWithIcon: {
     paddingLeft: 38,
@@ -254,7 +281,7 @@ const styles = StyleSheet.create({
   inputIcon: {
     position: "absolute",
     left: 12,
-    top: 13,
+    top: 15,
     zIndex: 1,
   },
   sectionLabel: {

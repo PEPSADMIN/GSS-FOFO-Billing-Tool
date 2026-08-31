@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { InvoiceDTO, InvoiceStatus } from "@gss/shared";
@@ -7,7 +7,7 @@ import { useAuth } from "../../lib/auth-context";
 import { api, ApiError } from "../../lib/api";
 import { formatMoney } from "../../lib/money";
 import { downloadFile } from "../../lib/download";
-import { Button, Screen } from "../../components/ui";
+import { AppRefreshControl, Button, Screen } from "../../components/ui";
 import { DateRangeModal } from "../../components/DateRangeModal";
 import { colors, radii, scaleFont, spacing } from "../../lib/theme";
 
@@ -134,7 +134,7 @@ export default function InvoicesScreen() {
       <FlatList
         data={invoices}
         keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} tintColor={colors.accent} />}
+        refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={load} />}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={<Text style={styles.empty}>No invoices yet</Text>}
         onEndReached={loadMore}

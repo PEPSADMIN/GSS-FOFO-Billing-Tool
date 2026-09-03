@@ -18,11 +18,11 @@ migrate()
     if (certPath && keyPath) {
       const options = { cert: fs.readFileSync(certPath), key: fs.readFileSync(keyPath) };
       https.createServer(options, app).listen(PORT, "0.0.0.0", () => {
-        console.log(`GSS Billing backend listening on https://0.0.0.0:${PORT}`);
+        console.log(`Dealer Distributor Portal backend listening on https://0.0.0.0:${PORT}`);
       });
     } else {
       app.listen(PORT, "0.0.0.0", () => {
-        console.log(`GSS Billing backend listening on http://0.0.0.0:${PORT}`);
+        console.log(`Dealer Distributor Portal backend listening on http://0.0.0.0:${PORT}`);
       });
     }
   })

@@ -1,10 +1,10 @@
 {
-  "name": "gss-billing",
+  "name": "dealer-distributor-portal",
   "private": true,
   "version": "0.1.0",
   "workspaces": [
     "shared",
     "backend",
-    "mobile"
+    "dealer-distributor-portal"
   ]
 }

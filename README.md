@@ -1,6 +1,6 @@
-# GSS Billing Tool — FOFO Edition
+# Dealer Distributor Portal
 
-**GSS Billing** is a full-stack billing and inventory management application built for **Peps Industries Pvt. Ltd.** (Mattress Manufacturing, Coimbatore). It runs as a web app (and optionally as a mobile app) and generates GST-compliant tax invoices.
+**Dealer Distributor Portal** is a full-stack billing and inventory management application built for **Peps Industries Pvt. Ltd.** (Mattress Manufacturing, Coimbatore). It runs as a web app (and optionally as a mobile app) and generates GST-compliant tax invoices.
 
 ---
 
@@ -28,7 +28,7 @@
 
 ```
 backend/    Express · Prisma ORM · SQLite · TypeScript · PDFKit · ExcelJS
-mobile/     Expo Router · React Native · React Native Web · TypeScript
+dealer-distributor-portal/     Expo Router · React Native · React Native Web · TypeScript
 shared/     Shared TypeScript types · GST calculation engine · i18n (11 languages)
 ```
 
@@ -54,7 +54,7 @@ cd GSS-FOFO-Billing-Tool
 
 ```bash
 cd backend && npm install
-cd ../mobile && npm install
+cd ../dealer-distributor-portal && npm install
 cd ..
 ```
 
@@ -82,7 +82,7 @@ npx prisma db seed               # create the owner account
 
 ### 5 — Configure the mobile app
 
-Create `mobile/.env`:
+Create `dealer-distributor-portal/.env`:
 
 ```env
 # For web browser on the same machine:
@@ -100,12 +100,12 @@ Open **two terminals**:
 ```bash
 cd backend
 npm run dev
-# → GSS Billing backend listening on http://0.0.0.0:4000
+# → Dealer Distributor Portal backend listening on http://0.0.0.0:4000
 ```
 
 **Terminal 2 — Web App**
 ```bash
-cd mobile
+cd dealer-distributor-portal
 npx expo start --web
 # → Open http://localhost:8081 in your browser
 ```
@@ -124,8 +124,7 @@ npx expo start --web
 ```
 GSS-FOFO-Billing-Tool/
 │
-├── backend/
-│   ├── prisma/
+├── backend/│   ├── prisma/
 │   │   ├── schema.prisma          # Database models
 │   │   ├── migrations/            # All DB migrations (committed)
 │   │   └── seed.ts                # Creates owner account on first run
@@ -147,7 +146,7 @@ GSS-FOFO-Billing-Tool/
 │           ├── invoicePdf.ts      # PDFKit GST invoice layout
 │           └── numberToWords.ts   # Indian rupees in words
 │
-├── mobile/
+├── dealer-distributor-portal/
 │   ├── app/
 │   │   ├── (tabs)/                # All main screens
 │   │   │   ├── index.tsx          # Home / Announcements
@@ -239,7 +238,7 @@ English · Hindi · Tamil · Telugu · Bengali · Marathi · Gujarati · Kannada
 
 - **`.env` files are not committed** — you must create `backend/.env` manually on each machine
 - **Database is not committed** — run `prisma migrate deploy` + `prisma db seed` on first setup
-- **`node_modules/` are not committed** — run `npm install` in `backend/` and `mobile/`
+- **`node_modules/` are not committed** — run `npm install` in `backend/` and `dealer-distributor-portal/`
 - The app uses **SQLite** by default. For production, swap the Prisma datasource to PostgreSQL/MySQL
 
 ---

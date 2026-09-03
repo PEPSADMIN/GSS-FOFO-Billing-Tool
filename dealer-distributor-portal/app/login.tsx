@@ -31,7 +31,7 @@ export default function LoginScreen() {
         <View style={styles.brandBadge}>
           <Image source={require("../assets/icon.png")} style={styles.brandLogo} resizeMode="contain" />
         </View>
-        <Text style={styles.title}>GSS Billing</Text>
+        <Text style={styles.title}>Dealer Distributor Portal</Text>
         <Text style={styles.subtitle}>Sign in to continue</Text>
 
         <View style={styles.card}>

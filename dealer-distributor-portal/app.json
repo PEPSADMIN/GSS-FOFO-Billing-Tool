@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "GSS Billing",
-    "slug": "mobile",
+    "name": "Dealer Distributor Portal",
+    "slug": "dealer-distributor-portal",
     "version": "1.0.0",
-    "scheme": "gssbilling",
+    "scheme": "ddp",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -18,7 +18,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.mobile"
+      "package": "com.peps.dealerdistributor"
     },
     "web": {
       "favicon": "./assets/favicon.png"

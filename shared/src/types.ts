@@ -474,6 +474,12 @@ export interface BulkDeleteResultDTO {
   deleted: number;
 }
 
+export interface BulkUploadResultDTO {
+  created: number;
+  skipped: number;
+  errors: { row: number; message: string }[];
+}
+
 export const ANNOUNCEMENT_CATEGORIES = ["PRICE_CHANGE", "DISCOUNT", "MRP_CHANGE", "GENERAL"] as const;
 export type AnnouncementCategory = (typeof ANNOUNCEMENT_CATEGORIES)[number];
 

@@ -14,6 +14,7 @@ import {
 } from "@gss/shared";
 import { useAuth } from "../../lib/auth-context";
 import { api, ApiError } from "../../lib/api";
+import { downloadFile } from "../../lib/download";
 import { showAlert } from "../../lib/alert";
 import { Button, Input, Screen, SectionHeader } from "../../components/ui";
 import { colors, radii, scaleFont, spacing } from "../../lib/theme";
@@ -58,6 +59,33 @@ export default function SettingsScreen() {
   const [outletBankIfscCode, setOutletBankIfscCode] = useState("");
   const [outletLogoBase64, setOutletLogoBase64] = useState("");
   const [pickingLogo, setPickingLogo] = useState(false);
+
+  const [downloadingItemsTemplate, setDownloadingItemsTemplate] = useState(false);
+  const [downloadingCustomersTemplate, setDownloadingCustomersTemplate] = useState(false);
+
+  async function downloadItemsTemplate() {
+    if (!auth) return;
+    setDownloadingItemsTemplate(true);
+    try {
+      await downloadFile(api.items.templatePath(), auth.token, "items-template.xlsx");
+    } catch (err) {
+      showAlert("Failed to download template", err instanceof ApiError ? err.message : "Something went wrong. Try again.");
+    } finally {
+      setDownloadingItemsTemplate(false);
+    }
+  }
+
+  async function downloadCustomersTemplate() {
+    if (!auth) return;
+    setDownloadingCustomersTemplate(true);
+    try {
+      await downloadFile(api.customers.templatePath(), auth.token, "customers-template.xlsx");
+    } catch (err) {
+      showAlert("Failed to download template", err instanceof ApiError ? err.message : "Something went wrong. Try again.");
+    } finally {
+      setDownloadingCustomersTemplate(false);
+    }
+  }
 
   const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[0-9A-Z]{1}[A-Z]{1}[0-9A-Z]{1}$/;
   const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
@@ -369,6 +397,26 @@ export default function SettingsScreen() {
           </>
         )}
 
+        <SectionHeader label="Data Import" icon="cloud-upload-outline" />
+        <Text style={styles.helperText}>
+          Download a template, fill in your existing Items or Customers, then upload the completed file from the Items or Customers
+          tab (look for "Import" there).
+        </Text>
+        <Button
+          label="Download Items Template"
+          variant="secondary"
+          loading={downloadingItemsTemplate}
+          onPress={downloadItemsTemplate}
+          style={styles.templateButton}
+        />
+        <Button
+          label="Download Customers Template"
+          variant="secondary"
+          loading={downloadingCustomersTemplate}
+          onPress={downloadCustomersTemplate}
+          style={styles.templateButton}
+        />
+
         <SectionHeader label={t("settings_theme")} icon="color-palette-outline" />
         <View style={styles.swatchRow}>
           {THEME_PALETTES.map((palette) => (
@@ -493,6 +541,7 @@ const styles = StyleSheet.create({
   swatchActive: { borderColor: colors.text },
   swatchDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.white },
   helperText: { fontSize: scaleFont(12), color: colors.textMuted, marginTop: spacing.sm, marginBottom: spacing.sm },
+  templateButton: { marginBottom: spacing.sm },
   customBox: {
     backgroundColor: colors.surface,
     borderWidth: 1,

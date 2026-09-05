@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import ExcelJS from "exceljs";
-import { deriveStateCode } from "@gss/shared";
+import { deriveStateCode, rupeesToPaise } from "@gss/shared";
 import { prisma } from "../prisma";
 import { requireAuth } from "../middleware/auth";
 import { generateCustomerCode } from "../lib/customerCode";
@@ -18,6 +18,29 @@ const PINCODE_REGEX = /^[0-9]{6}$/;
 
 const bulkDeleteSchema = z.object({
   ids: z.array(z.string().min(1)).min(1),
+});
+
+const CUSTOMER_TEMPLATE_COLUMNS = [
+  "Name",
+  "Email",
+  "Phone",
+  "Alternate Mobile",
+  "Company",
+  "Address Line 1",
+  "Address Line 2",
+  "Address Line 3",
+  "City",
+  "District",
+  "State",
+  "Pincode",
+  "PAN",
+  "GSTIN",
+  "Credit Limit (Rs)",
+];
+const MAX_BULK_UPLOAD_ROWS = 2000;
+
+const bulkUploadSchema = z.object({
+  fileBase64: z.string().min(1, "No file provided"),
 });
 
 const customerInputSchema = z.object({
@@ -125,6 +148,40 @@ customersRouter.get("/export", async (req, res, next) => {
 
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="customers-${new Date().toISOString().slice(0, 10)}.xlsx"`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Must be registered before GET /:id, which would otherwise swallow "/template" as an id.
+customersRouter.get("/template", async (_req, res, next) => {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Customers");
+    sheet.columns = CUSTOMER_TEMPLATE_COLUMNS.map((header) => ({ header, width: 20 }));
+    sheet.getRow(1).font = { bold: true };
+    sheet.addRow([
+      "City Bazaar",
+      "citybazaar@example.com",
+      "9840066677",
+      "",
+      "",
+      "17 T Nagar Main Rd",
+      "",
+      "",
+      "Chennai",
+      "Chennai",
+      "Tamil Nadu",
+      "600017",
+      "",
+      "",
+      "",
+    ]);
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", 'attachment; filename="customers-template.xlsx"');
     await workbook.xlsx.write(res);
     res.end();
   } catch (err) {
@@ -460,6 +517,103 @@ customersRouter.post("/bulk-delete", async (req, res, next) => {
       summary: `Bulk-deleted ${result.count} customers: ${targets.map((t) => t.name).join(", ")}`,
     });
     res.json({ deleted: result.count });
+  } catch (err) {
+    next(err);
+  }
+});
+
+customersRouter.post("/bulk-upload", async (req, res, next) => {
+  try {
+    const outletId = req.user!.outletId;
+    const { fileBase64 } = bulkUploadSchema.parse(req.body);
+    const commaIdx = fileBase64.indexOf(",");
+    const buffer = Buffer.from(commaIdx >= 0 ? fileBase64.slice(commaIdx + 1) : fileBase64, "base64");
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer as any);
+    const sheet = workbook.worksheets[0];
+    if (!sheet) throw new HttpError(400, "The uploaded file has no worksheet");
+
+    const rowCount = sheet.actualRowCount - 1;
+    if (rowCount > MAX_BULK_UPLOAD_ROWS) {
+      throw new HttpError(400, `Too many rows (${rowCount}). Maximum ${MAX_BULK_UPLOAD_ROWS} customers per upload.`);
+    }
+
+    const errors: { row: number; message: string }[] = [];
+    const candidates: { row: number; data: z.infer<typeof customerInputSchema> }[] = [];
+
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return; // header
+      const values = row.values as (string | number | undefined)[]; // 1-indexed, [0] unused
+      const [
+        ,
+        name,
+        email,
+        phone,
+        alternateMobile,
+        company,
+        addressLine1,
+        addressLine2,
+        addressLine3,
+        city,
+        district,
+        state,
+        pincode,
+        panCode,
+        gstin,
+        creditLimitRupees,
+      ] = values;
+      if (name === undefined && phone === undefined && addressLine1 === undefined) return; // blank row
+
+      const str = (v: string | number | undefined) => (v !== undefined ? String(v).trim() : "");
+      const candidate = {
+        name: str(name),
+        email: str(email),
+        phone: str(phone),
+        alternateMobile: str(alternateMobile) || undefined,
+        company: str(company) || undefined,
+        addressLine1: str(addressLine1),
+        addressLine2: str(addressLine2) || undefined,
+        addressLine3: str(addressLine3) || undefined,
+        city: str(city),
+        district: str(district),
+        state: str(state),
+        pincode: str(pincode),
+        panCode: str(panCode).toUpperCase() || undefined,
+        gstin: str(gstin).toUpperCase() || undefined,
+        creditLimit: str(creditLimitRupees) ? rupeesToPaise(Number(creditLimitRupees)) : undefined,
+      };
+
+      const parsed = customerInputSchema.safeParse(candidate);
+      if (!parsed.success) {
+        errors.push({ row: rowNumber, message: parsed.error.errors.map((e) => e.message).join("; ") });
+        return;
+      }
+      candidates.push({ row: rowNumber, data: parsed.data });
+    });
+
+    let created = 0;
+    for (const { row, data } of candidates) {
+      try {
+        const customerCode = await generateCustomerCode(outletId);
+        await prisma.customer.create({ data: { ...withDerivedStateCode(data), outletId, customerCode } });
+        created++;
+      } catch (err) {
+        errors.push({ row, message: err instanceof Error ? err.message : "Failed to create this customer" });
+      }
+    }
+
+    logAudit({
+      outletId,
+      userId: req.user!.userId,
+      userName: req.user!.name,
+      action: "CREATE",
+      entityType: "Customer",
+      entityId: "bulk-upload",
+      summary: `Bulk-uploaded ${created} customers (${errors.length} row(s) skipped)`,
+    });
+
+    res.json({ created, skipped: errors.length, errors });
   } catch (err) {
     next(err);
   }

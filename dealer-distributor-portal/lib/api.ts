@@ -28,6 +28,7 @@ import type {
   OutletSalesSummaryDTO,
   OutstandingSummaryDTO,
   BulkDeleteResultDTO,
+  BulkUploadResultDTO,
   PaginatedDTO,
   AuditLogEntryDTO,
   OutletDTO,
@@ -196,6 +197,9 @@ export const api = {
       apiRequest<CustomerAddressDTO>(`/api/customers/${id}/addresses/${addressId}`, { method: "PUT", token, body: data }),
     removeAddress: (token: string, id: string, addressId: string) =>
       apiRequest<void>(`/api/customers/${id}/addresses/${addressId}`, { method: "DELETE", token }),
+    templatePath: () => "/api/customers/template",
+    bulkUpload: (token: string, fileBase64: string) =>
+      apiRequest<BulkUploadResultDTO>("/api/customers/bulk-upload", { method: "POST", token, body: { fileBase64 } }),
   },
 
   items: {
@@ -223,6 +227,9 @@ export const api = {
     bulkRemove: (token: string, ids: string[]) =>
       apiRequest<BulkDeleteResultDTO>("/api/items/bulk-delete", { method: "POST", token, body: { ids } }),
     restore: (token: string, id: string) => apiRequest<ItemDTO>(`/api/items/${id}/restore`, { method: "POST", token }),
+    templatePath: () => "/api/items/template",
+    bulkUpload: (token: string, fileBase64: string) =>
+      apiRequest<BulkUploadResultDTO>("/api/items/bulk-upload", { method: "POST", token, body: { fileBase64 } }),
   },
 
   invoices: {

@@ -8,6 +8,7 @@ import { useAuth } from "../../lib/auth-context";
 import { api, ApiError, ItemInput, StockAdjustmentInput } from "../../lib/api";
 import { formatMoney } from "../../lib/money";
 import { AppRefreshControl, Button, Input, ModalHeader, Screen } from "../../components/ui";
+import { BulkUploadModal } from "../../components/BulkUploadModal";
 import { showAlert, showConfirm } from "../../lib/alert";
 import { colors, radii, scaleFont, spacing, typography } from "../../lib/theme";
 
@@ -69,6 +70,7 @@ export default function ItemsScreen() {
   const [total, setTotal] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [deletedVisible, setDeletedVisible] = useState(false);
+  const [importVisible, setImportVisible] = useState(false);
 
   const load = useCallback(() => {
     if (!auth) return;
@@ -166,6 +168,9 @@ export default function ItemsScreen() {
               thumbColor={colors.text}
             />
             <Text style={styles.lowStockLabel}>Low stock only</Text>
+            <Pressable onPress={() => setImportVisible(true)}>
+              <Text style={styles.deletedLink}>Import</Text>
+            </Pressable>
             <Pressable onPress={() => setDeletedVisible(true)}>
               <Text style={styles.deletedLink}>Deleted items</Text>
             </Pressable>
@@ -243,6 +248,15 @@ export default function ItemsScreen() {
         visible={deletedVisible}
         onClose={() => setDeletedVisible(false)}
         onRestored={load}
+      />
+
+      <BulkUploadModal
+        visible={importVisible}
+        title="Import Items"
+        entityLabel="items"
+        onUpload={(fileBase64) => api.items.bulkUpload(auth!.token, fileBase64)}
+        onClose={() => setImportVisible(false)}
+        onDone={load}
       />
     </Screen>
   );

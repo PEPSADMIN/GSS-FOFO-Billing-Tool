@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
+import ExcelJS from "exceljs";
+import { rupeesToPaise } from "@gss/shared";
 import { prisma } from "../prisma";
 import { requireAuth } from "../middleware/auth";
 import { HttpError } from "../middleware/errorHandler";
@@ -27,6 +29,13 @@ const stockAdjustmentSchema = z.object({
 
 const bulkDeleteSchema = z.object({
   ids: z.array(z.string().min(1)).min(1),
+});
+
+const ITEM_TEMPLATE_COLUMNS = ["Name", "HSN Code", "Unit", "GST Rate (%)", "Price (Rs)", "Current Stock", "Low Stock Threshold"];
+const MAX_BULK_UPLOAD_ROWS = 2000;
+
+const bulkUploadSchema = z.object({
+  fileBase64: z.string().min(1, "No file provided"),
 });
 
 itemsRouter.get("/", async (req, res, next) => {
@@ -57,6 +66,24 @@ itemsRouter.get("/", async (req, res, next) => {
       prisma.item.count({ where }),
     ]);
     res.json({ data: items, total, page, pageSize });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Must be registered before GET /:id, which would otherwise swallow "/template" as an id.
+itemsRouter.get("/template", async (_req, res, next) => {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Items");
+    sheet.columns = ITEM_TEMPLATE_COLUMNS.map((header) => ({ header, width: 20 }));
+    sheet.getRow(1).font = { bold: true };
+    sheet.addRow(["100D-Rebonded Foam Sample", "9404", "PCS", 18, 1000, 50, 5]);
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", 'attachment; filename="items-template.xlsx"');
+    await workbook.xlsx.write(res);
+    res.end();
   } catch (err) {
     next(err);
   }
@@ -159,6 +186,72 @@ itemsRouter.post("/bulk-delete", async (req, res, next) => {
       summary: `Bulk-deleted ${result.count} items: ${targets.map((t) => t.name).join(", ")}`,
     });
     res.json({ deleted: result.count });
+  } catch (err) {
+    next(err);
+  }
+});
+
+itemsRouter.post("/bulk-upload", async (req, res, next) => {
+  try {
+    const outletId = req.user!.outletId;
+    const { fileBase64 } = bulkUploadSchema.parse(req.body);
+    const commaIdx = fileBase64.indexOf(",");
+    const buffer = Buffer.from(commaIdx >= 0 ? fileBase64.slice(commaIdx + 1) : fileBase64, "base64");
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer as any);
+    const sheet = workbook.worksheets[0];
+    if (!sheet) throw new HttpError(400, "The uploaded file has no worksheet");
+
+    const rowCount = sheet.actualRowCount - 1;
+    if (rowCount > MAX_BULK_UPLOAD_ROWS) {
+      throw new HttpError(400, `Too many rows (${rowCount}). Maximum ${MAX_BULK_UPLOAD_ROWS} items per upload.`);
+    }
+
+    const errors: { row: number; message: string }[] = [];
+    const toCreate: z.infer<typeof itemInputSchema>[] = [];
+
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return; // header
+      const values = row.values as (string | number | undefined)[]; // 1-indexed, [0] unused
+      const [, name, hsnCode, unit, gstRate, priceRupees, currentStock, lowStockThreshold] = values;
+      if (name === undefined && hsnCode === undefined && priceRupees === undefined) return; // blank row
+
+      const candidate = {
+        name: name !== undefined ? String(name).trim() : "",
+        hsnCode: hsnCode !== undefined ? String(hsnCode).trim() : "",
+        unit: unit !== undefined ? String(unit).trim() : "",
+        gstRate: Number(gstRate),
+        price: Number.isFinite(Number(priceRupees)) ? rupeesToPaise(Number(priceRupees)) : NaN,
+        currentStock: currentStock !== undefined && currentStock !== "" ? Math.trunc(Number(currentStock)) : undefined,
+        lowStockThreshold: lowStockThreshold !== undefined && lowStockThreshold !== "" ? Math.trunc(Number(lowStockThreshold)) : undefined,
+      };
+
+      const parsed = itemInputSchema.safeParse(candidate);
+      if (!parsed.success) {
+        errors.push({ row: rowNumber, message: parsed.error.errors.map((e) => e.message).join("; ") });
+        return;
+      }
+      toCreate.push(parsed.data);
+    });
+
+    let created = 0;
+    if (toCreate.length > 0) {
+      const result = await prisma.item.createMany({ data: toCreate.map((data) => ({ ...data, outletId })) });
+      created = result.count;
+    }
+
+    logAudit({
+      outletId,
+      userId: req.user!.userId,
+      userName: req.user!.name,
+      action: "CREATE",
+      entityType: "Item",
+      entityId: "bulk-upload",
+      summary: `Bulk-uploaded ${created} items (${errors.length} row(s) skipped)`,
+    });
+
+    res.json({ created, skipped: errors.length, errors });
   } catch (err) {
     next(err);
   }
